@@ -99,6 +99,7 @@ $dyRun = '<已安装 Skill>\scripts\invoke.ps1'
 
 ## 失败、修复与回退
 
+- 如果 1.1.0 检查或更新时因 GitHub 证书链错误失败，可从[最新 Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest)下载新版 ZIP，按上方手动升级步骤使用同一 Windows 用户和原安装参数运行安装器，再检查本地入口。
 - `v*` 正式标签不可重写或删除，已发布的 Release 和资产保留。失败时不覆盖旧标签或资产。
 - 标签推送或发布过程被中断时，先检查该标签对应的 Actions 和 Release，确认实际状态再决定后续操作，避免重复发布。
 - 已发布版本有缺陷时，修复后走新的 PR 并发布新补丁；需要撤回某项功能时，使用 revert PR 并发布新版本。

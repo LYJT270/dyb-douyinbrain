@@ -6,6 +6,7 @@ The MIT license at the repository root applies to this project's own code and do
 
 | Component | Role | License / authoritative source |
 |---|---|---|
+| certifi | Mozilla root certificates for verified release downloads when Windows trust-store verification fails | [MPL-2.0](https://github.com/certifi/python-certifi/blob/master/LICENSE) |
 | Playwright for Python | Dedicated local browser for Douyin login and visible-page metadata | [Apache-2.0](https://github.com/microsoft/playwright-python/blob/main/LICENSE) |
 | yt-dlp | Single-video extraction fallback | [Unlicense](https://github.com/yt-dlp/yt-dlp/blob/master/LICENSE); see its [third-party licensing notes](https://github.com/yt-dlp/yt-dlp#license) for bundled components |
 | greenlet | Playwright dependency | [MIT and PSF-derived portions](https://github.com/python-greenlet/greenlet/blob/master/LICENSE) |
