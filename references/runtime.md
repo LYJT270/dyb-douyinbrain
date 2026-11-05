@@ -11,6 +11,21 @@ $dyRun = '<skill>\scripts\invoke.ps1'
 
 浏览器只负责必要的控制台配置、抖音登录和素材解析／获取；语音识别由随包 asr.py 请求豆包语音 HTTP 接口。程序失败后保留真实错误并修复，默认不使用网页上传、网页字幕或浏览器听音替代；付费重试仍遵守下文规则。
 
+## 版本检查与升级
+
+```powershell
+& $dyRun check-update          # 24 小时缓存；新任务先检查
+& $dyRun check-update --force  # 用户明确要求立即检查时
+& $dyRun update               # 只查询，不安装
+& $dyRun update --apply       # 用户明确要求更新本 Skill 时
+```
+
+`check-update` 返回当前版本、最新版本及 `should_notify`。只有该值为 true 时主动提示；每个新版最多每天提醒一次。`unavailable` 表示暂时不能联网检查，继续原任务；设置 `DYB_UPDATE_CHECK=0` 可以停用日常检查，显式升级仍会联网查询。仅访问公开 GitHub Release 元数据，不发送文稿、Key 或登录状态。
+
+`update --apply` 重新查询最新正式版，下载官方 ZIP 及 SHA-256 文件，校验压缩包和内部完整清单，调用安装器更新当前 Skill 的真实目录。继续使用原本机设置和工作目录；旧程序留备份，Key、素材和任务数据不属于替换范围。安装失败且已生成有效旧程序备份时恢复旧程序，失败版本留在 `.trash`；依赖安装若中断，按实际错误修复后再试。查看 `update-result.json` 和返回的日志路径，不自行清空数据或强行删除更新锁。
+
+`updated` 表示新版程序及本地入口验证通过，随后重读新版 Skill；`up_to_date` 表示无需更新。它们都不代表付费语音或云端权限已实测。源代码 Git checkout 使用维护发布流程，不能被自更新安装包覆盖。首次从 1.0.x 升级需先通过新版 ZIP 安装一次，1.1.0 起支持以上命令。
+
 ## 建立与执行任务
 
 ```powershell
@@ -22,7 +37,7 @@ $dyRun = '<skill>\scripts\invoke.ps1'
 & $dyRun show <task>
 ```
 
-`plan` 不联网、不识别。明确指令与后续用途回复都可以作为真实 evidence，不需要机械等待第二次确认。`purpose` 为 `transcribe`、`analyze`、`rewrite`、`ingest`、`compile`；分析与改写还需 `--instruction '<实际要求>'`。多个交付目标可记录在 instruction 中，涉及入库时 purpose 选择 ingest 或 compile。
+`plan` 不获取媒体、不调用语音识别；入口会进行上述可关闭的版本检查。明确指令与后续用途回复都可以作为真实 evidence，不需要机械等待第二次确认。`purpose` 为 `transcribe`、`analyze`、`rewrite`、`ingest`、`compile`；分析与改写还需 `--instruction '<实际要求>'`。多个交付目标可记录在 instruction 中，涉及入库时 purpose 选择 ingest 或 compile。
 
 作者主页在 confirm 选择 `--latest N`、`--start YYYY-MM-DD --end YYYY-MM-DD` 或 `--all`。短链解析后才发现是主页时，只补范围。日期含起止日，置顶顺序不代表发布时间。
 

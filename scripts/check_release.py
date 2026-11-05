@@ -9,11 +9,26 @@ from urllib.parse import unquote, urlsplit
 import xml.etree.ElementTree as ET
 
 from package import collect, make_manifest
+from release_assets import version_tuple
 
 
 def check(root: Path) -> list[str]:
     errors = []
     version = (root / "VERSION").read_text().strip()
+    try:
+        version_tuple(version)
+    except ValueError as exc:
+        errors.append(str(exc))
+    notes = root / "docs/releases" / f"v{version}.md"
+    if not notes.is_file():
+        errors.append("Missing release notes for VERSION")
+    else:
+        notes_text = notes.read_text(encoding="utf-8-sig")
+        if "## 中文" not in notes_text or "## English" not in notes_text:
+            errors.append("Release notes must include Chinese and English sections")
+    changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8-sig")
+    if not re.search(r"^## " + re.escape(version) + r" - \d{4}-\d{2}-\d{2}$", changelog, re.M):
+        errors.append("CHANGELOG.md has no dated entry for VERSION")
     payload = collect(root)
     current = json.loads((root / "bundle.json").read_text(encoding="utf-8-sig"))
     if current != make_manifest(root, version, payload):

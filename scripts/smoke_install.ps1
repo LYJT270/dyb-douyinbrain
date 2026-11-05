@@ -1,5 +1,6 @@
 ﻿param([Parameter(Mandatory=$true)][string]$PythonExecutable, [string]$SandboxDirectory)
 $ErrorActionPreference = 'Stop'
+$env:DYB_UPDATE_CHECK = '0'
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 $source = Split-Path -Parent $PSScriptRoot

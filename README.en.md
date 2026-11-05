@@ -52,6 +52,12 @@ Please install and enable Douyin-brain (dyb-douyinbrain) on my Windows computer.
 
 For installation stages, options, setup, and troubleshooting, see the [English getting-started guide](docs/getting-started.en.md) and [INSTALL.md](INSTALL.md).
 
+### Upgrade an existing installation
+
+**Users of 1.0.0 and 1.0.1 must first install 1.1.0 manually once** (or a later version that already includes the updater): download and extract the [latest installation ZIP](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest), then run the installer as the same Windows user. Reuse the original Agent and path arguments if you customized them, so the installer can use your existing data and settings. After a local `doctor` and a functional check, ask your Agent to reread the installed `SKILL.md` or start a new conversation.
+
+Starting with 1.1.0, a new task checks for the latest stable release and notifies you of an update without installing it automatically. To update, say “`@dyb-douyinbrain 更新`” or “`$dyb-douyinbrain 更新`”; if your Agent does not support those invocation forms, say “Use dyb-douyinbrain to update itself.” The Agent verifies the official package and updates only when you explicitly request it. A failed network check does not block the original task; media downloads and cloud speech recognition still require network access. See the [upgrade steps](docs/releasing.en.md#upgrading-an-existing-installation).
+
 ## Configure Doubao Speech
 
 ![Doubao Speech setup flow](assets/setup-flow.svg)
@@ -99,4 +105,4 @@ Other compatible Agents with local file and terminal access can read `SKILL.md` 
 
 ## License and contributions
 
-Project-owned code is released by [ScarfaceAI](https://github.com/ScarfaceAI) under the [MIT License](LICENSE). Third-party components have their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). For provenance and history, see [references/sources.md](references/sources.md). Contributions and security reports are described in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+Project-owned code is released by [ScarfaceAI](https://github.com/ScarfaceAI) under the [MIT License](LICENSE). Third-party components have their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). For provenance and history, see [references/sources.md](references/sources.md). See [CONTRIBUTING.md](CONTRIBUTING.md), the [maintenance and release guide](docs/releasing.en.md), and [SECURITY.md](SECURITY.md).

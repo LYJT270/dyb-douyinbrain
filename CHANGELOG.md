@@ -1,5 +1,10 @@
 # 更新记录
 
+## 1.1.0 - 2026-11-05
+
+- 增加新版检查和用户明确要求时的更新能力；补充版本发布、公开安装包校验与已有用户升级说明。
+- Added update checks and user-requested upgrades, with documented release preparation, public package verification, and upgrade guidance.
+
 ## 1.0.1 - 2026-11-05
 
 - GitHub 账号由 `LYJT270` 更名为 `ScarfaceAI`，更新当前仓库链接与署名；保留 1.0.0 标签和发布历史，功能与安装行为不变。
