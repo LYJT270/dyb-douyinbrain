@@ -1,5 +1,14 @@
 # 更新记录
 
+## 1.2.0 - 2026-11-05
+
+- 单条公开视频优先尝试 HTTP 分享页和全新无登录态的无头浏览器，必要时使用已有专用浏览器状态，并保留 yt-dlp 单视频回退；常规获取在后台进行，失败按实际原因报告。
+- 新增不调用语音识别的 `inspect-source` 和 `prepare-review`；后者按当前 Agent 实际的看图／听音能力准备材料，抽样或逐帧准备不等于完成校对。
+- 优化安装和登录说明：抖音登录不是安装前置；只有用户明确要求登录、验证或界面排障时才打开可见专用浏览器。
+- Acquire individual public videos through an HTTP share page and a fresh headless anonymous browser first, with existing dedicated browser state when needed and the existing yt-dlp fallback. Routine acquisition runs in the background and reports the actual cause of failure.
+- Add `inspect-source` and `prepare-review` without invoking speech recognition. Review preparation follows the current Agent's actual image and audio capabilities and does not itself complete a review.
+- Clarify that Douyin login is not an installation prerequisite and a visible dedicated browser opens only for explicitly requested login, verification, or interface troubleshooting.
+
 ## 1.1.1 - 2026-11-05
 
 - 修复部分 Windows 环境因 GitHub 证书链校验失败而无法检查或下载更新的问题；符合条件时使用 certifi 的 Mozilla 信任根重试，仍校验证书和域名。

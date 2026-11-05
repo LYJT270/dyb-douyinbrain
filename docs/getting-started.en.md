@@ -6,7 +6,7 @@ Douyin-brain works with an Agent that can read local files and run terminal comm
 
 Use the repository source root, or download and extract the installation ZIP from [the latest Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest). The folder to install from contains `SKILL.md` and `scripts/install.ps1`.
 
-Python is not a prerequisite: the installer attempts to prepare Python, a virtual environment, dependencies, FFmpeg, and Chromium. Setup needs network access and may require you to resolve a Windows permission or package-manager problem.
+Python and Douyin login are not installation prerequisites: the installer attempts to prepare Python, a virtual environment, dependencies, FFmpeg, and Chromium. Setup needs network access and may require you to resolve a Windows permission or package-manager problem.
 
 ## 2. Install
 
@@ -53,7 +53,7 @@ The Agent can read the installed `skill_file` and `runtime_reference` from the r
 
 ## 5. Use it
 
-Send a link or file along with the desired outcome. For example: “Transcribe this link, proofread it, and do not add it to a knowledge base.” For a creator profile specify the latest number of posts, a date range, or all posts. If the platform prevents the program from reaching the end of a profile, the result is incomplete.
+Send a link or file along with the desired outcome. For example: “Transcribe this link, proofread it, and do not add it to a knowledge base.” Routine acquisition runs headlessly in the background. For a creator profile specify the latest number of posts, a date range, or all posts. If the platform prevents the program from reaching the end of a profile, the result is incomplete.
 
 For existing text, ask for proofreading, analysis, or a spoken-script rewrite directly. Archiving occurs only when you request it; creating the empty default knowledge base does not import past work.
 
@@ -61,6 +61,6 @@ For existing text, ask for proofreading, analysis, or a spoken-script rewrite di
 
 Downloaded media, extracted audio, transcripts, browser state, and task records remain in the configured local workspace. Credentials are encrypted for the current Windows user using DPAPI; another Windows user or computer must configure them again. The installation ZIP does not carry your credentials, browser state, or task history.
 
-The program contacts Douyin to acquire media, and sends audio to Doubao Speech when you request recognition. Installing dependencies also downloads components. The user handles any login or CAPTCHA. Failed or unknown paid requests should be checked before an explicitly requested retry.
+The program contacts Douyin to acquire media, and sends audio to Doubao Speech when you request recognition. Installing dependencies also downloads components. An ordinary login button alone does not prove that login is required. A visible Douyin browser opens only when you explicitly request login, verification, or interface troubleshooting; you handle any login or CAPTCHA. Failed or unknown paid requests should be checked before an explicitly requested retry.
 
 If setup fails, inspect the reported stage, network availability, Windows permissions, and missing dependency. If speech authentication fails, check the correct project, the speech key, service activation and available quota; a local `doctor` success cannot establish any of these cloud-side conditions. Never share the key, cookies, or verification codes in a bug report.

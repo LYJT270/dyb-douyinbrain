@@ -1,1 +1,1 @@
-请安装并启用抖音脑 dyb-douyinbrain。读取安装包根目录的 INSTALL.md，根据当前 Agent 选择发现目录，运行 scripts/install.ps1 自动准备环境；只在需要我本人登录、开通服务或填写 API Key 时让我操作。不要在聊天索要密钥。安装完成后核对实际入口和环境，告诉我下一步。仓库：https://github.com/ScarfaceAI/dyb-douyinbrain
+请安装并启用抖音脑 dyb-douyinbrain。读取安装包根目录的 INSTALL.md，根据当前 Agent 选择发现目录，运行 scripts/install.ps1 自动准备环境；豆包账号登录、开通服务和填写 API Key 由我本人处理，不要在聊天索要密钥。抖音登录不是安装前置；只有我明确要求登录、验证或界面排障时才打开可见的抖音浏览器。安装完成后核对实际入口和环境，告诉我下一步。仓库：https://github.com/ScarfaceAI/dyb-douyinbrain

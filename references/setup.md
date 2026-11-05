@@ -38,7 +38,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\scripts\install.ps1' 
 
 可由用户在本机进程配置 `DOUBAO_ASR_API_KEY`，或 `DOUBAO_ASR_APP_ID` 和 `DOUBAO_ASR_ACCESS_KEY`；诊断只检查是否存在，不打印值。
 
-需要登录抖音时使用 `scripts/invoke.ps1 login`，由用户在项目专用浏览器完成登录或验证码。`doctor` 只检查本地依赖与凭据是否存在，不登录、不校验云端权限、不发送识别请求。实际可用性以用户选择的任务结果为准。
+抖音登录不是安装前置。常规获取在后台尝试公开素材并报告实际原因；普通登录按钮不能证明必须登录。只有用户明确要求登录、验证或界面排障时使用 `scripts/invoke.ps1 login`，由用户在可见的项目专用浏览器完成登录或验证码。`doctor` 只检查本地依赖与凭据是否存在，不登录、不校验云端权限、不发送识别请求。实际可用性以用户选择的任务结果为准。
 
 ## 知识库入口
 
@@ -46,6 +46,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\scripts\install.ps1' 
 
 ## 迁移与隔离
 
-安装包不包含工作数据、历史媒体、缓存、浏览器登录状态或凭据。换电脑后重新安装、重新配置语音凭据，并在需要时重新登录抖音。`-StateDirectory` 供隔离测试使用，正常安装不需要；隔离结果不能证明真实用户目录已配置。
+安装包不包含工作数据、历史媒体、缓存、浏览器登录状态或凭据。换电脑后重新安装、重新配置语音凭据；抖音登录仅在用户明确要求时进行。`-StateDirectory` 供隔离测试使用，正常安装不需要；隔离结果不能证明真实用户目录已配置。
 
 依赖来源与许可见 [sources.md](sources.md) 和项目的 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)。
