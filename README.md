@@ -5,9 +5,9 @@
   <p>中文 · <a href="README.en.md">English</a></p>
 </div>
 
-[![CI](https://github.com/LYJT270/dyb-douyinbrain/actions/workflows/check.yml/badge.svg)](https://github.com/LYJT270/dyb-douyinbrain/actions/workflows/check.yml)
-[![License](https://img.shields.io/github/license/LYJT270/dyb-douyinbrain)](https://github.com/LYJT270/dyb-douyinbrain/blob/main/LICENSE)
-[![Release](https://img.shields.io/github/v/release/LYJT270/dyb-douyinbrain)](https://github.com/LYJT270/dyb-douyinbrain/releases/latest)
+[![CI](https://github.com/ScarfaceAI/dyb-douyinbrain/actions/workflows/check.yml/badge.svg)](https://github.com/ScarfaceAI/dyb-douyinbrain/actions/workflows/check.yml)
+[![License](https://img.shields.io/github/license/ScarfaceAI/dyb-douyinbrain)](https://github.com/ScarfaceAI/dyb-douyinbrain/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/ScarfaceAI/dyb-douyinbrain)](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest)
 
 抖音脑是一个在 Windows 本地运行的 Agent Skill。你把链接、视频或现有文稿交给 Agent，说明想要什么，它就使用随包程序获取素材、调用你自己的豆包语音 API，并继续校对或处理文稿。你也可以只处理现成文字。
 
@@ -40,12 +40,12 @@
 把下面这段发给你使用的 Agent：
 
 ```text
-请在我的 Windows 电脑安装并启用抖音脑 dyb-douyinbrain。请获取 https://github.com/LYJT270/dyb-douyinbrain/releases/latest 的安装 ZIP，或者使用我提供的仓库源码目录；阅读 INSTALL.md，自动处理解压、安装和依赖配置。在当前对话加载安装后的 SKILL.md。豆包语音 Key 由我在本机窗口填写，不要让我把 Key 发到聊天里。需要登录或验证码时请告诉我。
+请在我的 Windows 电脑安装并启用抖音脑 dyb-douyinbrain。请获取 https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest 的安装 ZIP，或者使用我提供的仓库源码目录；阅读 INSTALL.md，自动处理解压、安装和依赖配置。在当前对话加载安装后的 SKILL.md。豆包语音 Key 由我在本机窗口填写，不要让我把 Key 发到聊天里。需要登录或验证码时请告诉我。
 ```
 
 ### 方式二：自己安装
 
-1. 打开 [最新 Release](https://github.com/LYJT270/dyb-douyinbrain/releases/latest)，下载安装 ZIP 并解压；也可以使用本仓库的源码根目录。
+1. 打开 [最新 Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest)，下载安装 ZIP 并解压；也可以使用本仓库的源码根目录。
 2. 双击 `install.cmd`。安装器会尝试自动准备 Python、运行依赖、FFmpeg 和浏览器环境。
 3. 在本机弹出的窗口填写自己的豆包语音 API Key。暂时没有 Key 可以先跳过，处理已有文稿不需要语音服务。
 4. 让 Agent 读取安装后的 `SKILL.md`，然后直接发送素材和要求。
@@ -103,4 +103,4 @@
 
 ## 开源与贡献
 
-抖音脑自有代码由 [LYJT270](https://github.com/LYJT270) 以 [MIT License](LICENSE) 发布。安装时使用的第三方组件遵循各自许可证，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)；来源与历史见 [references/sources.md](references/sources.md)。欢迎阅读[贡献指南](CONTRIBUTING.md)和[安全说明](SECURITY.md)。
+抖音脑自有代码由 [ScarfaceAI](https://github.com/ScarfaceAI) 以 [MIT License](LICENSE) 发布。安装时使用的第三方组件遵循各自许可证，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)；来源与历史见 [references/sources.md](references/sources.md)。欢迎阅读[贡献指南](CONTRIBUTING.md)和[安全说明](SECURITY.md)。

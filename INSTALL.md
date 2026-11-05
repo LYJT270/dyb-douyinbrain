@@ -1,13 +1,13 @@
 # 安装抖音脑：给用户和 Agent
 
-抖音脑在 Windows 本机运行。可以使用 [GitHub 仓库](https://github.com/LYJT270/dyb-douyinbrain)源码根目录，也可以使用 [最新 Release](https://github.com/LYJT270/dyb-douyinbrain/releases/latest) 的安装 ZIP。用户不需要预先安装 Python；安装器会尝试准备运行环境。语音识别使用用户自己的豆包语音服务，开通和计费以服务页面为准。
+抖音脑在 Windows 本机运行。可以使用 [GitHub 仓库](https://github.com/ScarfaceAI/dyb-douyinbrain)源码根目录，也可以使用 [最新 Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest) 的安装 ZIP。用户不需要预先安装 Python；安装器会尝试准备运行环境。语音识别使用用户自己的豆包语音服务，开通和计费以服务页面为准。
 
 ## 让 Agent 自动安装
 
 把以下内容发给有本地文件和终端能力的 Agent：
 
 ```text
-请在我的 Windows 电脑安装并启用抖音脑 dyb-douyinbrain。请获取 https://github.com/LYJT270/dyb-douyinbrain/releases/latest 的安装 ZIP，或者使用我提供的仓库源码目录；阅读 INSTALL.md，自动处理解压、安装和依赖配置。在当前对话加载安装后的 SKILL.md。豆包语音 Key 由我在本机窗口填写，不要让我把 Key 发到聊天里。需要登录或验证码时请告诉我。
+请在我的 Windows 电脑安装并启用抖音脑 dyb-douyinbrain。请获取 https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest 的安装 ZIP，或者使用我提供的仓库源码目录；阅读 INSTALL.md，自动处理解压、安装和依赖配置。在当前对话加载安装后的 SKILL.md。豆包语音 Key 由我在本机窗口填写，不要让我把 Key 发到聊天里。需要登录或验证码时请告诉我。
 ```
 
 Agent 可使用已取得的 Release ZIP 或源码根目录；解压后找到同时包含 `SKILL.md` 和 `scripts/install.ps1` 的目录，从该目录执行：
@@ -30,7 +30,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\scripts\install.ps1' 
 
 ## 自己安装
 
-1. 从 [Release 页面](https://github.com/LYJT270/dyb-douyinbrain/releases/latest)下载安装 ZIP 并解压，或者打开仓库源码根目录。
+1. 从 [Release 页面](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest)下载安装 ZIP 并解压，或者打开仓库源码根目录。
 2. 双击 `install.cmd`，由安装器自动准备 Python、依赖、FFmpeg 和浏览器运行环境，并设置本机工作目录。网络、权限或系统环境阻断时按实际错误修复。
 3. 如出现豆包语音配置窗口，在本机粘贴自己的语音 API Key 并保存；没有 Key 时可以暂缓，已有文稿仍可处理。
 4. 按安装结果找到 Skill，交给 Agent；如当前 Agent 不自动发现，直接让它读取安装后的 `SKILL.md`。

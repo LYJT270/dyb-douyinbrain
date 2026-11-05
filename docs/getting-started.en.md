@@ -4,7 +4,7 @@ Douyin-brain works with an Agent that can read local files and run terminal comm
 
 ## 1. Get the source or installation package
 
-Use the repository source root, or download and extract the installation ZIP from [the latest Release](https://github.com/LYJT270/dyb-douyinbrain/releases/latest). The folder to install from contains `SKILL.md` and `scripts/install.ps1`.
+Use the repository source root, or download and extract the installation ZIP from [the latest Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest). The folder to install from contains `SKILL.md` and `scripts/install.ps1`.
 
 Python is not a prerequisite: the installer attempts to prepare Python, a virtual environment, dependencies, FFmpeg, and Chromium. Setup needs network access and may require you to resolve a Windows permission or package-manager problem.
 

@@ -5,9 +5,9 @@
   <p><a href="README.md">中文</a> · English</p>
 </div>
 
-[![CI](https://github.com/LYJT270/dyb-douyinbrain/actions/workflows/check.yml/badge.svg)](https://github.com/LYJT270/dyb-douyinbrain/actions/workflows/check.yml)
-[![License](https://img.shields.io/github/license/LYJT270/dyb-douyinbrain)](https://github.com/LYJT270/dyb-douyinbrain/blob/main/LICENSE)
-[![Release](https://img.shields.io/github/v/release/LYJT270/dyb-douyinbrain)](https://github.com/LYJT270/dyb-douyinbrain/releases/latest)
+[![CI](https://github.com/ScarfaceAI/dyb-douyinbrain/actions/workflows/check.yml/badge.svg)](https://github.com/ScarfaceAI/dyb-douyinbrain/actions/workflows/check.yml)
+[![License](https://img.shields.io/github/license/ScarfaceAI/dyb-douyinbrain)](https://github.com/ScarfaceAI/dyb-douyinbrain/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/ScarfaceAI/dyb-douyinbrain)](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest)
 
 Douyin-brain is a Windows-local Agent Skill. Give an Agent a link, video, or existing transcript and tell it what you need. The bundled program acquires media and uses your own Doubao Speech API for recognition; the Agent then proofreads or works with the text. Existing text can be processed without speech recognition.
 
@@ -40,12 +40,12 @@ You need **Windows, an internet connection, and an Agent that can access local f
 Copy this prompt to your Agent:
 
 ```text
-Please install and enable Douyin-brain (dyb-douyinbrain) on my Windows computer. Get the installation ZIP from https://github.com/LYJT270/dyb-douyinbrain/releases/latest, or use the repository source folder I provide. Read INSTALL.md, handle extraction, installation, and dependency setup, and load the installed SKILL.md in this conversation. I will enter my Doubao Speech API key in the local configuration window; do not ask me to paste it into chat. Tell me when I need to complete a login or CAPTCHA.
+Please install and enable Douyin-brain (dyb-douyinbrain) on my Windows computer. Get the installation ZIP from https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest, or use the repository source folder I provide. Read INSTALL.md, handle extraction, installation, and dependency setup, and load the installed SKILL.md in this conversation. I will enter my Doubao Speech API key in the local configuration window; do not ask me to paste it into chat. Tell me when I need to complete a login or CAPTCHA.
 ```
 
 ### Install it yourself
 
-1. Download and extract the installation ZIP from the [latest Release](https://github.com/LYJT270/dyb-douyinbrain/releases/latest), or use the repository source root.
+1. Download and extract the installation ZIP from the [latest Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest), or use the repository source root.
 2. Double-click `install.cmd`. The installer attempts to prepare Python, dependencies, FFmpeg, and the browser environment.
 3. Enter your Doubao Speech API key in the local window. If you do not have one yet, you can defer it and still work with existing text.
 4. Ask your Agent to read the installed `SKILL.md`, then send it your material and instructions.
@@ -99,4 +99,4 @@ Other compatible Agents with local file and terminal access can read `SKILL.md` 
 
 ## License and contributions
 
-Project-owned code is released by [LYJT270](https://github.com/LYJT270) under the [MIT License](LICENSE). Third-party components have their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). For provenance and history, see [references/sources.md](references/sources.md). Contributions and security reports are described in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+Project-owned code is released by [ScarfaceAI](https://github.com/ScarfaceAI) under the [MIT License](LICENSE). Third-party components have their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). For provenance and history, see [references/sources.md](references/sources.md). Contributions and security reports are described in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).

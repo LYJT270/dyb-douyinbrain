@@ -1,5 +1,10 @@
 # 更新记录
 
+## 1.0.1 - 2026-11-05
+
+- GitHub 账号由 `LYJT270` 更名为 `ScarfaceAI`，更新当前仓库链接与署名；保留 1.0.0 标签和发布历史，功能与安装行为不变。
+- Updated repository links and attribution after the GitHub account rename from `LYJT270` to `ScarfaceAI`; the 1.0.0 tag and release history remain, with no change to functionality or installation behavior.
+
 ## 1.0.0 - 2026-11-05
 
 - 整理公开版抖音脑 Douyin-brain，提供 Windows 自动安装与多 Agent 安装适配。

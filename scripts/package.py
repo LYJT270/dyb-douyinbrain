@@ -43,7 +43,7 @@ def make_manifest(skill: Path, version: str, payload=None) -> dict:
         raise ValueError("Version must use major.minor.patch")
     payload = collect(skill) if payload is None else payload
     return {"name": "dyb-douyinbrain", "display_name": "抖音脑 Douyin-brain", "version": version,
-            "platform": "windows", "license": "MIT", "repository": "https://github.com/LYJT270/dyb-douyinbrain",
+            "platform": "windows", "license": "MIT", "repository": "https://github.com/ScarfaceAI/dyb-douyinbrain",
             "file_sha256": {p: hashlib.sha256(data).hexdigest() for p, data in sorted(payload.items())}}
 
 
