@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
+import ssl
 from urllib import request
+from urllib.error import URLError
 import zipfile
 
 REPOSITORY = "ScarfaceAI/dyb-douyinbrain"
@@ -22,8 +25,25 @@ def version_tuple(value: str) -> tuple[int, int, int]:
 
 def read_url(url: str, timeout: float = 30, limit: int = MAX_DOWNLOAD_BYTES) -> bytes:
     req = request.Request(url, headers={"User-Agent": "dyb-douyinbrain", "Accept": "application/vnd.github+json"})
-    with request.urlopen(req, timeout=timeout) as response:
-        data = response.read(limit + 1)
+    def read(context=None):
+        options = {"timeout": timeout}
+        if context is not None:
+            options["context"] = context
+        with request.urlopen(req, **options) as response:
+            return response.read(limit + 1)
+    try:
+        data = read()
+    except URLError as exc:
+        # Some Windows stores cannot build a public CA chain consistently. Retry
+        # this read-only request with Mozilla roots, keeping full TLS verification.
+        # Respect an explicitly configured organizational trust store.
+        if not isinstance(exc.reason, ssl.SSLCertVerificationError) or os.environ.get("SSL_CERT_FILE") or os.environ.get("SSL_CERT_DIR"):
+            raise
+        try:
+            import certifi
+        except ImportError:
+            raise exc
+        data = read(ssl.create_default_context(cafile=certifi.where()))
     if len(data) > limit:
         raise ValueError("Release download exceeds the supported size")
     return data

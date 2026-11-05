@@ -7,6 +7,8 @@ from pathlib import Path
 import shutil
 import sys
 import subprocess
+import ssl
+from types import SimpleNamespace
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -217,3 +219,35 @@ class UpdateTests(unittest.TestCase):
                 release.select_successful_run([rejected], "abc")
         with self.assertRaises(ValueError):
             release.select_successful_run([run, {**run, "id": 2, "conclusion": "failure"}], "abc")
+
+    def test_certificate_fallback_still_verifies_chain_and_hostname(self):
+        context = ssl.create_default_context()
+        certificate_error = URLError(ssl.SSLCertVerificationError("issuer missing"))
+        with patch.dict("os.environ", {"SSL_CERT_FILE": "", "SSL_CERT_DIR": ""}), \
+                patch.dict(sys.modules, {"certifi": SimpleNamespace(where=lambda: "mozilla-roots.pem")}), \
+                patch.object(release_assets.ssl, "create_default_context", return_value=context) as factory, \
+                patch.object(release_assets.request, "urlopen", side_effect=[certificate_error, io.BytesIO(b"verified response")]) as fetch:
+            self.assertEqual(b"verified response", release_assets.read_url(release_assets.API_URL))
+            self.assertEqual(2, fetch.call_count)
+            factory.assert_called_once_with(cafile="mozilla-roots.pem")
+            retried = fetch.call_args.kwargs["context"]
+            self.assertTrue(retried.check_hostname)
+            self.assertEqual(ssl.CERT_REQUIRED, retried.verify_mode)
+
+    def test_certificate_fallback_respects_explicit_trust_configuration(self):
+        error = URLError(ssl.SSLCertVerificationError("organization trust error"))
+        with patch.dict("os.environ", {"SSL_CERT_FILE": "organization-roots.pem"}), \
+                patch.object(release_assets.ssl, "create_default_context") as factory, \
+                patch.object(release_assets.request, "urlopen", side_effect=error) as fetch:
+            with self.assertRaises(URLError):
+                release_assets.read_url(release_assets.API_URL)
+            self.assertEqual(1, fetch.call_count)
+            factory.assert_not_called()
+
+    def test_non_certificate_network_error_does_not_retry_with_other_roots(self):
+        with patch.object(release_assets.ssl, "create_default_context") as factory, \
+                patch.object(release_assets.request, "urlopen", side_effect=URLError("offline")) as fetch:
+            with self.assertRaises(URLError):
+                release_assets.read_url(release_assets.API_URL)
+            self.assertEqual(1, fetch.call_count)
+            factory.assert_not_called()

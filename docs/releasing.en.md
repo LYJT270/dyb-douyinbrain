@@ -99,6 +99,7 @@ The installer and `doctor` report local status only. `awaiting_api` indicates mi
 
 ## Failures, fixes, and rollback
 
+- If a GitHub certificate-chain error prevents version 1.1.0 from checking or applying an update, download the new ZIP from the [latest Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest), follow the manual upgrade steps above using the same Windows user and original installation arguments, then check the local entry point.
 - Do not rewrite or delete official `v*` tags. Preserve published Releases and assets; do not overwrite an older tag or asset after a failure.
 - If tagging or publication is interrupted, inspect the Actions run and Release for that tag before choosing the next step.
 - For a defect in a published version, fix it in a new PR and publish a new patch. To remove a feature, use a revert PR and publish a new version.
