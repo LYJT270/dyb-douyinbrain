@@ -1,4 +1,4 @@
-"""Shared verification for official release downloads; standard library only."""
+"""Verify official release downloads, with optional certifi trust-root fallback."""
 from __future__ import annotations
 
 import hashlib

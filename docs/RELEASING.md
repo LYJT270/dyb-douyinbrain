@@ -66,11 +66,15 @@ python -B -X utf8 scripts/verify_release.py --archive '<本地 ZIP 路径>'
 
 只有公开下载校验成功，才报告该版本的发布与包验证完成；分别说明自动化检查无法证明的真实语音服务、主页完整分页和各 Agent 会话。
 
+发布后的证据应把标签、源码提交、CI 和安装包 SHA 记录到正式文档，不能只留在 `.scratch`；参见 [1.1.1 验收快照](verification/v1.1.1.md)。
+
+如果 `main` 已含发布后的文档改动，复验旧版公开包时应在对应标签的独立 checkout 中运行验证：`verify_release.py` 会严格比较当前源码清单，不要为了匹配清单覆盖旧 Release。独立构建的 ZIP 可能因时间戳不同而有不同整包 SHA；每份 ZIP 分别核验自己的 `.zip.sha256` 校验文件和对应标签的源码清单即可。
+
 ## 已有用户如何升级
 
 ### 1.0.0／1.0.1 的首次过渡
 
-旧版没有自动更新入口，需要先手动安装一次 1.1.0，或已包含更新功能的较新版：
+旧版没有自动更新入口，先手动安装一次最新正式版；自动更新功能从 1.1.0 开始提供：
 
 1. 下载并解压[最新 Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest)的安装 ZIP。
 2. 用同一 Windows 用户运行新版安装器。默认安装可双击 `install.cmd`；此前指定过 `-Agent`、`-SkillsRoot`、`-Workspace` 或 `-Vault` 的，沿用原参数，或让 Agent 按原参数运行安装器。这样可以复用已登记的工作目录和本机设置；保留现有数据与配置。

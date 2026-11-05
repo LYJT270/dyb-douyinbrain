@@ -66,11 +66,15 @@ python -B -X utf8 scripts/verify_release.py --archive '<path-to-local-zip>'
 
 Report the release and package verification as complete only after the public download check succeeds. Separately identify scenarios the checks did not establish, such as live speech service, complete profile pagination, and individual Agent sessions.
 
+Record post-release evidence in project documentation, including the tag, source commit, CI, and package SHA; do not leave it only in `.scratch`. See the [1.1.1 verification snapshot](verification/v1.1.1.md).
+
+If `main` contains documentation changes made after a release, reverify that release from a separate checkout of its tag: `verify_release.py` strictly compares against the current source manifest. Do not overwrite an old Release to make it match. Independently built ZIPs may have different whole-archive SHAs because of timestamps; verify each ZIP against its own `.zip.sha256` checksum file and the source manifest for its tag.
+
 ## Upgrading an existing installation
 
 ### First transition from 1.0.0 or 1.0.1
 
-The older versions do not have the update feature. First manually install 1.1.0, or a later version that already includes the updater:
+The older versions do not have the update feature. First manually install the latest stable release; the updater was first introduced in 1.1.0:
 
 1. Download and extract the installation ZIP from the [latest Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest).
 2. Run the new installer as the same Windows user. For a default installation, double-click `install.cmd`. If the original installation used `-Agent`, `-SkillsRoot`, `-Workspace`, or `-Vault`, use the same arguments or ask your Agent to do so. This lets the installer reuse the registered workspace and local settings; preserve existing data and configuration.

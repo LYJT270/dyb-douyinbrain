@@ -54,7 +54,7 @@
 
 ### 更新已有安装
 
-**1.0.0 和 1.0.1 用户先手动安装一次 1.1.0**（或已包含更新功能的较新版）：下载并解压[最新安装包](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest)，用原 Windows 用户重新运行安装器。自定义过 Agent 或目录时沿用原参数，让安装器复用已有数据和设置。完成本地 `doctor` 与功能检查后，让 Agent 重新读取安装后的 `SKILL.md`，或开启新会话。
+**1.0.0 和 1.0.1 用户需先手动安装一次最新正式版**：下载并解压[最新安装包](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest)，用原 Windows 用户重新运行安装器。自定义过 Agent 或目录时沿用原参数，让安装器复用已有数据和设置。完成本地 `doctor` 与功能检查后，让 Agent 重新读取安装后的 `SKILL.md`，或开启新会话。
 
 从 1.1.0 起，新任务会检查最新正式版，有新版时提醒，不会擅自安装。需要更新时可以说「`@dyb-douyinbrain 更新`」或「`$dyb-douyinbrain 更新`」；不支持这些调用方式的 Agent，可说「使用 dyb-douyinbrain 更新自己」。Agent 会在你明确要求后验证官方包并更新。检查暂时无法联网时不会阻断原任务；下载素材和调用云语音仍需要网络。详见[升级步骤](docs/RELEASING.md#已有用户如何升级)。
 
