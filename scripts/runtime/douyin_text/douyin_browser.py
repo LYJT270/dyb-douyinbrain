@@ -1,4 +1,4 @@
-"""Read public Douyin page responses using the user's dedicated browser session.
+"""Read Douyin page responses in a headless visitor or dedicated browser session.
 
 This adapter is independently implemented. It does not contain the old vendored
 downloader, generated signatures, CAPTCHA solving, or cookies from other browsers.
@@ -7,10 +7,13 @@ from __future__ import annotations
 
 import json
 import re
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 from urllib.request import Request, urlopen
+
+from . import acquisition
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
@@ -107,11 +110,11 @@ class ProfileFeed:
 
     def finish(self) -> list[dict]:
         if not self.complete or not self.responses:
-            raise RuntimeError("主页发现不完整：未收到作品列表的分页结束标志。请检查专用浏览器登录／验证状态；尚未调用语音识别。")
+            raise RuntimeError("主页发现不完整：未收到作品列表的分页结束标志，尚不能判断是否需要登录；尚未调用语音识别。")
         if self.unresolved:
             raise RuntimeError("主页部分作品元数据缺失，无法保证所选范围；尚未调用语音识别。")
         if not self.items:
-            raise ValueError("当前登录会话可见的主页作品中没有可处理的视频（图文不送入语音识别）")
+            raise ValueError("当前浏览器会话可见的主页作品中没有可处理的视频（图文不送入语音识别）")
         return list(self.items.values())
 
 
@@ -119,6 +122,33 @@ def _context(playwright, profile: Path, *, headless=True):
     profile.mkdir(parents=True, exist_ok=True)
     return playwright.chromium.launch_persistent_context(str(profile), headless=headless,
         viewport={"width": 1440, "height": 1000}, locale="zh-CN", user_agent=USER_AGENT)
+
+
+@contextmanager
+def _session(playwright, profile: Path | None):
+    """Normal acquisition always stays headless; only explicit login opens a window."""
+    browser = None
+    context = None
+    try:
+        if profile is not None:
+            context = _context(playwright, profile, headless=True)
+        else:
+            browser = playwright.chromium.launch(headless=True)
+            context = browser.new_context(viewport={"width": 1440, "height": 1000},
+                                          locale="zh-CN", user_agent=USER_AGENT)
+        yield context
+    finally:
+        if context is not None:
+            context.close()
+        if browser is not None:
+            browser.close()
+
+
+def _visible_blocker(page) -> str | None:
+    try:
+        return acquisition.visible_blocker(page.locator("body").inner_text(timeout=2000))
+    except Exception:
+        return None
 
 
 def _hydrate(page) -> list[dict]:
@@ -171,12 +201,11 @@ def _yt_dlp_video(url: str, cookies: list[dict] | None = None) -> dict:
             "media": media, "duration": value.get("duration"), "published": published}
 
 
-def videos(urls: list[str], profile: Path) -> tuple[list[dict], list[dict]]:
+def videos(urls: list[str], profile: Path | None) -> tuple[list[dict], list[dict]]:
     from playwright.sync_api import sync_playwright
     results, failures = [], []
     with sync_playwright() as playwright:
-        context = _context(playwright, profile)
-        try:
+        with _session(playwright, profile) as context:
             for url in urls:
                 match = re.search(r"/(?:share/)?video/(\d+)", urlsplit(url).path)
                 wanted = "douyin-" + match.group(1) if match else ""
@@ -196,8 +225,10 @@ def videos(urls: list[str], profile: Path) -> tuple[list[dict], list[dict]]:
                         return
 
                 page.on("response", capture)
+                http_status = None
                 try:
-                    page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    navigation = page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    http_status = navigation.status if navigation is not None else None
                     for _ in range(20):
                         if wanted in found:
                             break
@@ -212,13 +243,16 @@ def videos(urls: list[str], profile: Path) -> tuple[list[dict], list[dict]]:
                     if record["id"] != wanted:
                         raise ValueError("解析到的视频与输入不一致")
                     results.append(record)
-                except Exception:
-                    failures.append({"input_url": url, "stage": "metadata",
-                                     "reason": "请完成专用抖音浏览器的登录或验证后重试；也可提供本地视频。"})
+                except Exception as exc:
+                    reason = _visible_blocker(page)
+                    if not reason:
+                        reason = "navigation_timeout" if "Timeout" in type(exc).__name__ else (
+                            "http_error" if http_status is not None and http_status >= 400 else "metadata_unavailable")
+                    failures.append(acquisition.clean_failure({"input_url": url, "stage": "metadata",
+                        "reason": reason, "message": str(exc), "http_status": http_status,
+                        "navigation_error_type": type(exc).__name__}))
                 finally:
                     page.close()
-        finally:
-            context.close()
     return results, failures
 
 
@@ -259,6 +293,10 @@ def profile_videos(url: str, profile: Path, report: Path, *, max_scrolls=240) ->
                     break
                 page.mouse.move(1100, 750)
                 page.mouse.wheel(0, 1800)
+            if not feed.complete:
+                blocker = _visible_blocker(page)
+                if blocker:
+                    raise acquisition.AcquisitionError([{"input_url": url, "reason": blocker}])
         finally:
             context.close()
             write_json(report, {"complete": feed.complete, "response_count": feed.responses,

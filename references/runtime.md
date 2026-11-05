@@ -9,7 +9,17 @@ $dyRun = '<skill>\scripts\invoke.ps1'
 
 该入口从本机 settings.json 选取 workspace 和它的 Python，调用本 Skill 相对路径的 brain.py；无需猜测旧电脑盘符。doctor 的 `execution_route` 应为 `bundled_local_engine`／`doubao_voice_api`，`web_transcription_fallback=false`；这确认程序路线，不代表云端已识别成功。环境缺失先运行 install.ps1 补齐，不转向网页识别。
 
-浏览器只负责必要的控制台配置、抖音登录和素材解析／获取；语音识别由随包 asr.py 请求豆包语音 HTTP 接口。程序失败后保留真实错误并修复，默认不使用网页上传、网页字幕或浏览器听音替代；付费重试仍遵守下文规则。
+单条公开视频先尝试普通 HTTP 分享页，再用全新无登录态的无头 Playwright；必要时尝试本机已有专用浏览器状态，保留 yt-dlp 的单视频回退。常规获取均在后台运行，浏览器使用 `headless=True`，不弹窗抢焦点，也不使用 Computer Use。程序失败后按实际原因报告，不自行打开可见浏览器或启动 Computer Use；普通登录按钮不能证明必须登录。只有用户明确要求登录、验证或界面排障时才运行 `login` 打开可见专用浏览器，登录和验证码由用户本人完成。
+
+语音识别由随包 asr.py 请求豆包语音 HTTP 接口，不使用网页上传、网页字幕或其他识别服务替代，也不自动录音；付费重试遵守下文规则。
+
+排查素材获取时可执行：
+
+```powershell
+& $dyRun inspect-source '<视频链接或本地媒体>' --anonymous-only
+```
+
+该命令不调用语音识别；`--anonymous-only` 不使用已保存的账号或浏览器状态。输出 `acquired`／`failed`、实际错误及 `report_directory`，不证明音轨提取或云端识别成功。去掉该参数才允许必要时尝试已有专用浏览器状态。此检查不用于证明作者主页分页完整。
 
 ## 版本检查与升级
 
@@ -47,7 +57,7 @@ $dyRun = '<skill>\scripts\invoke.ps1'
 
 ## Agent 接力
 
-run 完成识别／导入后进入 `awaiting_review`。读 task.results 的全部相关正文，实际完成校对，另存每条正文文件，再依 results 顺序传递多个 `--file`：
+run 完成识别／导入后进入 `awaiting_review`。读 task.results 的全部相关正文，按[当前会话的实际能力](review-capabilities.md)用 `prepare-review` 准备材料并实际完成校对，另存每条正文文件，再依 results 顺序传递多个 `--file`。准备材料不会调用 ASR 或登记完成状态：
 
 ```powershell
 & $dyRun register-review <task> --file '<校对1.txt>' --file '<校对2.txt>'

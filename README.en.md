@@ -9,14 +9,14 @@
 [![License](https://img.shields.io/github/license/ScarfaceAI/dyb-douyinbrain)](https://github.com/ScarfaceAI/dyb-douyinbrain/blob/main/LICENSE)
 [![Release](https://img.shields.io/github/v/release/ScarfaceAI/dyb-douyinbrain)](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest)
 
-Douyin-brain is a Windows-local Agent Skill. Give an Agent a link, video, or existing transcript and tell it what you need. The bundled program acquires media and uses your own Doubao Speech API for recognition; the Agent then proofreads or works with the text. Existing text can be processed without speech recognition.
+Douyin-brain is a Windows-local Agent Skill. Give an Agent a link, video, or existing transcript and tell it what you need. The bundled program acquires media in the background and uses your own Doubao Speech API for recognition; the Agent then proofreads or works with the text. Existing text can be processed without speech recognition.
 
 ![Workflow from input to delivery](assets/workflow.svg)
 
 ## What it does
 
 - **Transcribe:** Douyin post links, shared text, creator profiles, link lists, and local audio or video.
-- **Preserve and proofread:** keep the machine transcript and save a separate reviewed version, with unresolved names or numbers identified.
+- **Preserve and proofread:** keep the machine transcript and existing source media unchanged, save a separate reviewed version, and check uncertainties using the Agent's available image and audio tools.
 - **Analyze and adapt:** summarize, analyze, shorten, or write spoken scripts without overwriting the source.
 - **Deliver batches:** combine results into a numbered TXT in the original order and report failed items.
 - **Archive on request:** follow the target knowledge base's rules only when you explicitly ask for archiving or compilation.
@@ -40,7 +40,7 @@ You need **Windows, an internet connection, and an Agent that can access local f
 Copy this prompt to your Agent:
 
 ```text
-Please install and enable Douyin-brain (dyb-douyinbrain) on my Windows computer. Get the installation ZIP from https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest, or use the repository source folder I provide. Read INSTALL.md, handle extraction, installation, and dependency setup, and load the installed SKILL.md in this conversation. I will enter my Doubao Speech API key in the local configuration window; do not ask me to paste it into chat. Tell me when I need to complete a login or CAPTCHA.
+Please install and enable Douyin-brain (dyb-douyinbrain) on my Windows computer. Get the installation ZIP from https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest, or use the repository source folder I provide. Read INSTALL.md, handle extraction, installation, and dependency setup, and load the installed SKILL.md in this conversation. I will enter my Doubao Speech API key in the local configuration window; do not ask me to paste it into chat. Douyin login is not a prerequisite for installation; open a visible Douyin browser only when I explicitly request login, verification, or interface troubleshooting.
 ```
 
 ### Install it yourself
@@ -98,10 +98,11 @@ Other compatible Agents with local file and terminal access can read `SKILL.md` 
 
 - The default workspace is `dyb-douyinbrain` under Windows Documents; local settings are in `%LOCALAPPDATA%\dyb-douyinbrain\settings.json`. Credentials are encrypted using the current Windows user's DPAPI and stored in the workspace. Installation packages exclude your keys, browser login state, and task history.
 - Acquiring media accesses Douyin; recognition sends audio to Doubao Speech. Installing dependencies also requires network downloads. Use material in accordance with applicable permissions and service terms.
-- Douyin acquisition uses Playwright browser page responses, with yt-dlp as a fallback for individual posts where needed. Site changes, restrictions, login, or CAPTCHA can prevent acquisition; complete login or CAPTCHA yourself when required.
+- For a single public video, acquisition first tries the ordinary HTTP share page, then a fresh headless browser without saved login state. It may use an existing dedicated browser state if needed; yt-dlp remains a fallback for individual posts. Routine acquisition runs in the background without stealing focus or using Computer Use.
+- Site changes or access restrictions can prevent acquisition; failures report the actual cause. A normal login button alone does not prove login is required. A visible dedicated browser opens only when you explicitly request login, verification, or interface troubleshooting; you complete any login or CAPTCHA locally.
 - Creator profiles depend on pagination and platform responses. A run that does not reach the end is reported as incomplete rather than presented as the full profile.
 - `doctor` checks local dependencies and credential presence only; it does not log in to Douyin or validate cloud speech permissions. `awaiting_api` still allows existing-text work, while transcription needs speech configuration.
-- Transcription can contain mistakes, particularly names, numbers, and specialist terms. Review uncertain sections against the audio. Check failed or unknown paid requests before asking for a retry.
+- Transcription can contain mistakes, particularly names, numbers, and specialist terms. The Agent checks uncertainties using its actual image and audio tools and records the evidence used; sampled frames are not OCR, and preparing material is not a completed review. Check failed or unknown paid requests before asking for a retry.
 
 ## License and contributions
 

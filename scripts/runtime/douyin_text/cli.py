@@ -8,7 +8,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from . import asr, credentials, media, vault, workflow, content, setup
+from . import asr, credentials, media, vault, workflow, content, setup, review
 from .common import ROOT, RESOURCE_ROOT, SKILL_ROOT, config
 
 
@@ -31,6 +31,9 @@ def doctor() -> dict:
             "execution_route": {"mode": "bundled_local_engine", "asr_provider": "doubao_voice_api",
                                 "asr_endpoint": asr.ENDPOINT, "asr_module": str(Path(asr.__file__).resolve()),
                                 "browser_role": "douyin_login_and_media_acquisition_only",
+                                "acquisition": "anonymous_public_page_then_browser_then_existing_profile",
+                                "acquisition_headless": True, "computer_use_required": False,
+                                "review_capabilities": "reported_from_current_agent_tools_not_agent_name",
                                 "web_transcription_fallback": False},
             "next": "凭据与登录需要时在本机配置；真实识别状态须看任务回执"}
 
@@ -42,6 +45,18 @@ def parser() -> argparse.ArgumentParser:
     configure = sub.add_parser("configure", help="在本机安全填写豆包语音凭据")
     configure.add_argument("--legacy", action="store_true", help="旧控制台 APP ID + Access Token")
     sub.add_parser("login", help="打开项目专用抖音登录浏览器")
+    inspect = sub.add_parser("inspect-source", help="只检查单条视频链接或本地素材获取，不调用语音识别")
+    inspect.add_argument("inputs", nargs="+")
+    inspect.add_argument("--anonymous-only", action="store_true", help="不使用已保存的账号或浏览器状态")
+    evidence = sub.add_parser("prepare-review", help="按当前 Agent 的实际能力准备画面／音轨，准备不等于已校对")
+    evidence.add_argument("task")
+    evidence.add_argument("--images", action="store_true", help="当前 Agent 有可用的图片查看及理解工具")
+    evidence.add_argument("--audio", action="store_true", help="当前 Agent 有可用的音频输入／听音工具")
+    evidence.add_argument("--item", type=int, help="任务成功结果中的序号，从 1 开始")
+    evidence.add_argument("--start", type=float, default=0, help="原视频时间，单位秒")
+    evidence.add_argument("--end", type=float, help="原视频结束时间，单位秒；帧图包含恰好位于结束点的帧")
+    evidence.add_argument("--every-frame", action="store_true", help="提取指定范围全部视频帧，仍须 Agent 实际逐帧查看")
+    evidence.add_argument("--max-frames", type=int, default=120)
     plan = sub.add_parser("plan", help="创建待确认任务，不下载、不调用识别")
     plan.add_argument("inputs", nargs="+")
     confirm = sub.add_parser("confirm", help="记录用户本次明确选择")
@@ -108,6 +123,12 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         elif args.command == "login":
             return media.douyin_browser.login(ROOT / ".local" / "douyin-profile")
+        elif args.command == "inspect-source":
+            result = review.inspect_source(args.inputs, anonymous_only=args.anonymous_only)
+        elif args.command == "prepare-review":
+            result = review.prepare(args.task, images=args.images, audio=args.audio, item_number=args.item,
+                                    start=args.start, end=args.end, every_frame=args.every_frame,
+                                    max_frames=args.max_frames)
         elif args.command == "init":
             result = setup.initialize(vault=args.vault, create_vault=args.create_vault,
                                       assistant=args.assistant, register=args.register)

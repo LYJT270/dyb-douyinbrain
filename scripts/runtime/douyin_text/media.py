@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from .common import ROOT, digest, read_json, write_json
-from . import douyin_browser
+from . import acquisition, douyin_browser
 
 MEDIA_SUFFIXES = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".opus",
                   ".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".wma"}
@@ -67,13 +67,40 @@ def select_jobs(jobs: list[dict], scope: dict) -> list[dict]:
     return [job for job in ordered if scope["start"] <= job["published"][:10] <= scope["end"]]
 
 
-def metadata(urls: list[str], profile: Path, report: Path) -> tuple[list[dict], list[dict]]:
-    result, failures = douyin_browser.videos(urls, profile)
-    write_json(report, {"failures": failures, "resolved": len(result)})
+def metadata(urls: list[str], profile: Path, report: Path, *, anonymous_only=False) -> tuple[list[dict], list[dict]]:
+    result, public_failures = acquisition.public_metadata(urls)
+    attempts = [{"backend": "public_share", "access": "anonymous", "resolved_count": len(result),
+                 "failed_count": len(public_failures)}]
+    diagnostics = [acquisition.clean_failure(item, backend="public_share", access="anonymous")
+                   for item in public_failures]
+    seen = {job["id"] for job in result}
+    pending = [url for url in urls if "douyin-" + acquisition.video_id(url) not in seen]
+    contexts = [("anonymous", None)]
+    if not anonymous_only and profile.is_dir():
+        contexts.append(("existing_profile", profile))
+    for access, state in contexts:
+        if not pending:
+            break
+        try:
+            jobs, failures = douyin_browser.videos(pending, state)
+        except Exception as exc:
+            jobs = []
+            failures = [{"input_url": url, "reason": "browser_error", "message": str(exc)} for url in pending]
+        attempts.append({"backend": "playwright_with_ytdlp_fallback", "access": access,
+                         "resolved_count": len(jobs), "failed_count": len(failures)})
+        diagnostics.extend(acquisition.clean_failure(item, backend="playwright_with_ytdlp_fallback", access=access)
+                           for item in failures)
+        result.extend(jobs)
+        seen.update(job["id"] for job in jobs)
+        pending = [url for url in pending if "douyin-" + acquisition.video_id(url) not in seen]
+    unresolved = {acquisition.video_id(url) for url in pending}
+    failures = [item for item in diagnostics if acquisition.video_id(item["input_url"]) in unresolved]
+    write_json(report, {"failures": failures, "attempt_failures": diagnostics, "attempts": attempts,
+                        "resolved": len(result), "anonymous_first": True, "anonymous_only": anonymous_only})
     return result, failures
 
 
-def discover(values: list[str], scope: dict, run_dir: Path, root: Path = ROOT) -> list[dict]:
+def discover(values: list[str], scope: dict, run_dir: Path, root: Path = ROOT, *, anonymous_only=False) -> list[dict]:
     result = []
     for index, value in enumerate(values):
         if not value.startswith("http"):
@@ -86,11 +113,14 @@ def discover(values: list[str], scope: dict, run_dir: Path, root: Path = ROOT) -
         if not has_profile(resolved):
             if not re.search(r"/(?:share/)?video/\d+", urlsplit(resolved).path):
                 raise ValueError("链接不是可识别的视频或作者主页；图文、文章不送入语音转写")
+            options = {"anonymous_only": True} if anonymous_only else {}
             jobs, failures = metadata([resolved], root / ".local" / "douyin-profile",
-                                      run_dir / f"metadata-{index}.json")
+                                      run_dir / f"metadata-{index}.json", **options)
             if failures or not jobs:
-                raise RuntimeError("视频元数据获取失败，请检查项目内抖音登录态；尚未调用该视频转写")
+                raise acquisition.AcquisitionError(failures)
         else:
+            if anonymous_only:
+                raise ValueError("免登录单链接检查仅接受视频；作者主页须按实际分页与页面阻挡单独核验")
             if not scope_selected(scope):
                 raise ValueError("该短链指向作者主页，请先补充处理范围，再执行")
             jobs = douyin_browser.profile_videos(resolved, root / ".local" / "douyin-profile",

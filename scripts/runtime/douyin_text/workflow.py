@@ -6,7 +6,7 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-from . import asr, credentials, media
+from . import acquisition, asr, credentials, media
 from .common import ROOT, config, digest, inside, now, read_json, relative, write_json
 
 PURPOSES = {"transcribe": "只转写", "analyze": "总结／分析", "ingest": "原文留底与校对稿入库", "compile": "入库并编译", "rewrite": "口播改写"}
@@ -244,7 +244,12 @@ def run(task_id: str, root: Path = ROOT, *, retry_evidence: str = "") -> dict:
             from .vault import publish
             return publish(task_id, root=root)
     except Exception as exc:
-        task.update(status="failed", failures=[{"stage": "prepare_or_publish", "error": str(exc)}])
+        failure = {"stage": "prepare_or_publish", "error": str(exc)}
+        if isinstance(exc, acquisition.AcquisitionError):
+            failure["reason"] = exc.code
+            failure["reports"] = [relative(root, path) for path in sorted(
+                task_path(task_id, root).parent.glob("metadata-*.json"))]
+        task.update(status="failed", failures=[failure])
     save(task, root)
     return task
 

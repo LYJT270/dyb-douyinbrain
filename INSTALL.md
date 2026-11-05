@@ -7,7 +7,7 @@
 把以下内容发给有本地文件和终端能力的 Agent：
 
 ```text
-请在我的 Windows 电脑安装并启用抖音脑 dyb-douyinbrain。请获取 https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest 的安装 ZIP，或者使用我提供的仓库源码目录；阅读 INSTALL.md，自动处理解压、安装和依赖配置。在当前对话加载安装后的 SKILL.md。豆包语音 Key 由我在本机窗口填写，不要让我把 Key 发到聊天里。需要登录或验证码时请告诉我。
+请在我的 Windows 电脑安装并启用抖音脑 dyb-douyinbrain。请获取 https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest 的安装 ZIP，或者使用我提供的仓库源码目录；阅读 INSTALL.md，自动处理解压、安装和依赖配置。在当前对话加载安装后的 SKILL.md。豆包语音 Key 由我在本机窗口填写，不要让我把 Key 发到聊天里。抖音登录不是安装前置；只有我明确要求登录、验证或界面排障时才打开可见的抖音浏览器。
 ```
 
 Agent 可使用已取得的 Release ZIP 或源码根目录；解压后找到同时包含 `SKILL.md` 和 `scripts/install.ps1` 的目录，从该目录执行：
@@ -35,7 +35,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\scripts\install.ps1' 
 3. 如出现豆包语音配置窗口，在本机粘贴自己的语音 API Key 并保存；没有 Key 时可以暂缓，已有文稿仍可处理。
 4. 按安装结果找到 Skill，交给 Agent；如当前 Agent 不自动发现，直接让它读取安装后的 `SKILL.md`。
 
-首次申请或配置 Key，见[豆包语音配置教程](references/doubao-setup.md)。安装不会替用户购买资源，也不会自动发送付费语音请求。账号登录、服务开通／计费确认及验证码由用户处理。
+首次申请或配置 Key，见[豆包语音配置教程](references/doubao-setup.md)。安装不要求先登录抖音，也不会替用户购买资源、自动录音或发送付费语音请求。豆包账号登录、服务开通／计费确认及验证码由用户处理。
 
 ## 默认位置与配置
 
