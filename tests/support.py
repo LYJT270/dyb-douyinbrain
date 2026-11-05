@@ -59,7 +59,9 @@ class WorkspaceCase(unittest.TestCase):
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.parent = Path(self.temp.name)
+        # Windows hosted runners may expose TEMP through an 8.3 alias.
+        # Use the same canonical root as the runtime; preserve path and content assertions.
+        self.parent = Path(self.temp.name).resolve()
         self.root = self.parent / "workspace"
         self.root.mkdir()
         self.wav = self.parent / "中文录音.wav"  # user media lives outside the workspace

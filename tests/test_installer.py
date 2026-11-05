@@ -17,7 +17,7 @@ from support import SKILL_ROOT
 class InstallerTests(unittest.TestCase):
     def test_shared_install_can_be_reused_through_the_claude_junction(self):
         with tempfile.TemporaryDirectory(prefix="dyb-alias-") as temp:
-            base = Path(temp)
+            base = Path(temp).resolve()
             source = base / "source"
             shutil.copytree(SKILL_ROOT, source, ignore=shutil.ignore_patterns(".git", ".trash", ".scratch", "dist", "__pycache__"))
             load_packager().write_manifest(source, "1.0.0")
@@ -40,7 +40,7 @@ class InstallerTests(unittest.TestCase):
 
     def test_install_repeat_and_preserve_modified_install_in_isolation(self):
         with tempfile.TemporaryDirectory(prefix="dyb-install-") as temp:
-            base = Path(temp)
+            base = Path(temp).resolve()
             source = base / "source"
             shutil.copytree(SKILL_ROOT, source, ignore=shutil.ignore_patterns(".git", ".trash", ".scratch", "dist", "__pycache__"))
             load_packager().write_manifest(source, "1.0.0")
