@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 430" role="img" aria-labelledby="title desc">
+<title id="title">第一次使用 · Your first run</title><desc id="desc">环境由安装器准备，账号和 Key 由你本人配置 / Automatic dependencies, your own account</desc>
+<rect width="1400" height="430" rx="24" fill="#081820"/>
+<g font-family="Segoe UI,Microsoft YaHei,Arial,sans-serif">
+<text x="42" y="66" fill="#f4f8fb" font-size="30" font-weight="700">第一次使用 · Your first run</text>
+<text x="42" y="105" fill="#9db7c2" font-size="19">环境由安装器准备，账号和 Key 由你本人配置 / Automatic dependencies, your own account</text>
+<rect x="42.0" y="160" width="311.0" height="210" rx="18" fill="#112a34" stroke="#31525e"/>
+<text x="66.0" y="205" fill="#6ee7ef" font-size="22" font-weight="700">01</text>
+<text x="66.0" y="250" fill="#f4f8fb" font-size="24" font-weight="700">交给 Agent</text>
+<text x="66.0" y="285" fill="#9db7c2" font-size="17">Ask your Agent</text>
+<text x="66.0" y="336" fill="#ffa18e" font-size="16">仓库链接或 Release 安装包</text>
+<path d="M358.0 262h13m-5-5 5 5-5 5" fill="none" stroke="#6ee7ef" stroke-width="2"/>
+<rect x="377.0" y="160" width="311.0" height="210" rx="18" fill="#112a34" stroke="#31525e"/>
+<text x="401.0" y="205" fill="#6ee7ef" font-size="22" font-weight="700">02</text>
+<text x="401.0" y="250" fill="#f4f8fb" font-size="24" font-weight="700">自动准备环境</text>
+<text x="401.0" y="285" fill="#9db7c2" font-size="17">Install dependencies</text>
+<text x="401.0" y="336" fill="#ffa18e" font-size="16">Python / FFmpeg / Chromium</text>
+<path d="M693.0 262h13m-5-5 5 5-5 5" fill="none" stroke="#6ee7ef" stroke-width="2"/>
+<rect x="712.0" y="160" width="311.0" height="210" rx="18" fill="#112a34" stroke="#31525e"/>
+<text x="736.0" y="205" fill="#6ee7ef" font-size="22" font-weight="700">03</text>
+<text x="736.0" y="250" fill="#f4f8fb" font-size="24" font-weight="700">本机配置 Key</text>
+<text x="736.0" y="285" fill="#9db7c2" font-size="17">Configure locally</text>
+<text x="736.0" y="336" fill="#ffa18e" font-size="16">按教程开通豆包语音服务</text>
+<path d="M1028.0 262h13m-5-5 5 5-5 5" fill="none" stroke="#6ee7ef" stroke-width="2"/>
+<rect x="1047.0" y="160" width="311.0" height="210" rx="18" fill="#112a34" stroke="#31525e"/>
+<text x="1071.0" y="205" fill="#6ee7ef" font-size="22" font-weight="700">04</text>
+<text x="1071.0" y="250" fill="#f4f8fb" font-size="24" font-weight="700">发一条素材</text>
+<text x="1071.0" y="285" fill="#9db7c2" font-size="17">Send your first source</text>
+<text x="1071.0" y="336" fill="#ffa18e" font-size="16">检查真实结果，再继续批量</text>
+</g></svg>

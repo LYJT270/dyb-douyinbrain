@@ -1,0 +1,8 @@
+interface:
+  display_name: "抖音脑 Douyin-brain"
+  short_description: "抖音与本地音视频转写、校对、分析、口播改稿和按需知识归档，支持自动安装与配置引导。"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#6EE7EF"
+  default_prompt: "使用 $dyb-douyinbrain 处理我提供的视频或文稿，并按本次要求交付结果。"
+policy:
+  allow_implicit_invocation: true

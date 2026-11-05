@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 430" role="img" aria-labelledby="title desc">
+<title id="title">从视频到可用文稿 · Video to usable writing</title><desc id="desc">同一套本地流程，由你使用的 Agent 协调 / One local workflow, your preferred Agent</desc>
+<rect width="1400" height="430" rx="24" fill="#081820"/>
+<g font-family="Segoe UI,Microsoft YaHei,Arial,sans-serif">
+<text x="42" y="66" fill="#f4f8fb" font-size="30" font-weight="700">从视频到可用文稿 · Video to usable writing</text>
+<text x="42" y="105" fill="#9db7c2" font-size="19">同一套本地流程，由你使用的 Agent 协调 / One local workflow, your preferred Agent</text>
+<rect x="42.0" y="160" width="311.0" height="210" rx="18" fill="#112a34" stroke="#31525e"/>
+<text x="66.0" y="205" fill="#6ee7ef" font-size="22" font-weight="700">01</text>
+<text x="66.0" y="250" fill="#f4f8fb" font-size="24" font-weight="700">提供素材</text>
+<text x="66.0" y="285" fill="#9db7c2" font-size="17">Add your source</text>
+<text x="66.0" y="336" fill="#ffa18e" font-size="16">链接 / 本地文件 / 已有稿件</text>
+<path d="M358.0 262h13m-5-5 5 5-5 5" fill="none" stroke="#6ee7ef" stroke-width="2"/>
+<rect x="377.0" y="160" width="311.0" height="210" rx="18" fill="#112a34" stroke="#31525e"/>
+<text x="401.0" y="205" fill="#6ee7ef" font-size="22" font-weight="700">02</text>
+<text x="401.0" y="250" fill="#f4f8fb" font-size="24" font-weight="700">识别与留底</text>
+<text x="401.0" y="285" fill="#9db7c2" font-size="17">Transcribe &amp; preserve</text>
+<text x="401.0" y="336" fill="#ffa18e" font-size="16">媒体：豆包 API + 原文快照</text>
+<path d="M693.0 262h13m-5-5 5 5-5 5" fill="none" stroke="#6ee7ef" stroke-width="2"/>
+<rect x="712.0" y="160" width="311.0" height="210" rx="18" fill="#112a34" stroke="#31525e"/>
+<text x="736.0" y="205" fill="#6ee7ef" font-size="22" font-weight="700">03</text>
+<text x="736.0" y="250" fill="#f4f8fb" font-size="24" font-weight="700">校对与创作</text>
+<text x="736.0" y="285" fill="#9db7c2" font-size="17">Review &amp; write</text>
+<text x="736.0" y="336" fill="#ffa18e" font-size="16">校对 / 分析 / 口播改稿</text>
+<path d="M1028.0 262h13m-5-5 5 5-5 5" fill="none" stroke="#6ee7ef" stroke-width="2"/>
+<rect x="1047.0" y="160" width="311.0" height="210" rx="18" fill="#112a34" stroke="#31525e"/>
+<text x="1071.0" y="205" fill="#6ee7ef" font-size="22" font-weight="700">04</text>
+<text x="1071.0" y="250" fill="#f4f8fb" font-size="24" font-weight="700">交付与归档</text>
+<text x="1071.0" y="285" fill="#9db7c2" font-size="17">Deliver &amp; organize</text>
+<text x="1071.0" y="336" fill="#ffa18e" font-size="16">TXT / SRT / 按需知识入库</text>
+</g></svg>

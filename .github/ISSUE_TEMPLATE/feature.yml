@@ -1,0 +1,14 @@
+name: Feature request / 功能建议
+description: Tell us the situation and result you need.
+title: '[Feature] '
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do? / 你想完成什么？
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Desired behavior / 期望行为

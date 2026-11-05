@@ -1,0 +1,1 @@
+请安装并启用抖音脑 dyb-douyinbrain。读取安装包根目录的 INSTALL.md，根据当前 Agent 选择发现目录，运行 scripts/install.ps1 自动准备环境；只在需要我本人登录、开通服务或填写 API Key 时让我操作。不要在聊天索要密钥。安装完成后核对实际入口和环境，告诉我下一步。仓库：https://github.com/LYJT270/dyb-douyinbrain
