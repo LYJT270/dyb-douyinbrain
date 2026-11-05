@@ -27,6 +27,21 @@ def main() -> int:
     links = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local"))) / "Microsoft/WinGet/Links"
     os.environ["PATH"] = str(links) + os.pathsep + os.environ.get("PATH", "")
     sys.dont_write_bytecode = True
+    if remaining and remaining[0] in {"check-update", "update"}:
+        from updates import apply_update, check_updates, state_root
+        update_parser = argparse.ArgumentParser(prog=remaining[0])
+        update_parser.add_argument("--force", action="store_true")
+        if remaining[0] == "update":
+            update_parser.add_argument("--apply", action="store_true")
+        options = update_parser.parse_args(remaining[1:])
+        apply = getattr(options, "apply", False)
+        result = apply_update(skill_root, state_root(), workspace) if apply else check_updates(
+            skill_root, state_root(), force=options.force, notify=remaining[0] == "check-update")
+        print(json.dumps(result, ensure_ascii=False))
+        return int(apply and result["status"] not in {"updated", "up_to_date"})
+    if remaining and remaining[0] in {"plan", "plan-text"}:
+        from updates import notify_on_task, state_root
+        notify_on_task(skill_root, state_root())
     sys.path.insert(0, str(resource))
     from douyin_text.cli import main as run
     return run(remaining)

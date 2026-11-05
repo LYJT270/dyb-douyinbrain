@@ -52,6 +52,12 @@
 
 安装参数、默认目录和状态说明见[安装指南](INSTALL.md)。
 
+### 更新已有安装
+
+**1.0.0 和 1.0.1 用户先手动安装一次 1.1.0**（或已包含更新功能的较新版）：下载并解压[最新安装包](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest)，用原 Windows 用户重新运行安装器。自定义过 Agent 或目录时沿用原参数，让安装器复用已有数据和设置。完成本地 `doctor` 与功能检查后，让 Agent 重新读取安装后的 `SKILL.md`，或开启新会话。
+
+从 1.1.0 起，新任务会检查最新正式版，有新版时提醒，不会擅自安装。需要更新时可以说「`@dyb-douyinbrain 更新`」或「`$dyb-douyinbrain 更新`」；不支持这些调用方式的 Agent，可说「使用 dyb-douyinbrain 更新自己」。Agent 会在你明确要求后验证官方包并更新。检查暂时无法联网时不会阻断原任务；下载素材和调用云语音仍需要网络。详见[升级步骤](docs/RELEASING.md#已有用户如何升级)。
+
 ## 配置豆包语音
 
 ![豆包语音配置流程](assets/setup-flow.svg)
@@ -103,4 +109,4 @@
 
 ## 开源与贡献
 
-抖音脑自有代码由 [ScarfaceAI](https://github.com/ScarfaceAI) 以 [MIT License](LICENSE) 发布。安装时使用的第三方组件遵循各自许可证，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)；来源与历史见 [references/sources.md](references/sources.md)。欢迎阅读[贡献指南](CONTRIBUTING.md)和[安全说明](SECURITY.md)。
+抖音脑自有代码由 [ScarfaceAI](https://github.com/ScarfaceAI) 以 [MIT License](LICENSE) 发布。安装时使用的第三方组件遵循各自许可证，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)；来源与历史见 [references/sources.md](references/sources.md)。欢迎阅读[贡献指南](CONTRIBUTING.md)、[维护与发布指南](docs/RELEASING.md)和[安全说明](SECURITY.md)。

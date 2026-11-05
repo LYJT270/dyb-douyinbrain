@@ -29,10 +29,11 @@ $discoveryLink = $null
 $localEntryVerified = $false
 $doctor = $null
 
-function Save-InstallResult([hashtable]$Value) {
+function Save-InstallResult([hashtable]$Value, [switch]$Quiet) {
     New-Item -ItemType Directory -Path $stateRoot -Force | Out-Null
     $Value.agent_target = $Agent
     $Value.updated_at = [DateTimeOffset]::Now.ToString('o')
+    if ($env:DYB_UPDATE_ID) { $Value.update_operation_id = $env:DYB_UPDATE_ID }
     if ($targetRoot) {
         $Value.entrypoint = Join-Path $targetRoot 'scripts\invoke.ps1'
         $Value.skill_file = Join-Path $targetRoot 'SKILL.md'
@@ -44,8 +45,10 @@ function Save-InstallResult([hashtable]$Value) {
     $Value.local_entry_verified = $localEntryVerified
     if ($doctor) { $Value.execution_route = $doctor.execution_route }
     $Value.next_action_for_agent = '立即读取 skill_file 和 runtime_reference，在当前对话使用 entrypoint；媒体转写走随包程序及豆包 API，缺项先修复，不自行转到网页识别。'
-    $Value | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $resultPath -Encoding UTF8
-    $Value | ConvertTo-Json -Depth 12 | Write-Output
+    $temporaryResult = $resultPath + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
+    $Value | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $temporaryResult -Encoding UTF8
+    Move-Item -LiteralPath $temporaryResult -Destination $resultPath -Force
+    if (-not $Quiet) { $Value | ConvertTo-Json -Depth 12 | Write-Output }
 }
 function Get-ContentSha256([string]$Path) {
     $stream = [IO.File]::OpenRead($Path)
@@ -110,6 +113,7 @@ try {
                 if (-not $backupPath.StartsWith($backupRoot.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) { throw '备份目标超出允许目录。' }
                 # Both absolute move targets were checked against the explicitly named roots above.
                 New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+                Save-InstallResult @{status='installing';stage='backup_skill';skill=$targetRoot;version=$manifest.version;workspace=$Workspace;backup=$backupPath} -Quiet
                 Move-Item -LiteralPath $targetRoot -Destination $backupPath
             }
         }

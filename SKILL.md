@@ -1,6 +1,6 @@
 ---
 name: dyb-douyinbrain
-description: Transcribe Douyin links, profiles and local media with Doubao speech recognition; proofread, analyze or rewrite transcripts and existing text, export batches, or archive on request. 抖音链接、作者主页、本地音视频转写及文稿处理。
+description: Transcribe Douyin links, profiles and local media with Doubao speech recognition; proofread, analyze or rewrite text, export batches, or archive on request. Check Skill versions and update itself when asked. 抖音转写与文稿处理；检查新版及按用户要求更新自身。
 license: MIT
 ---
 
@@ -10,6 +10,9 @@ license: MIT
 
 ## 先确定任务
 
+- 新任务开始先通过本 Skill 的 `scripts/invoke.ps1 check-update` 检查版本；结果 `should_notify=true` 时简短提示版本号和“@dyb-douyinbrain 更新”，随后继续原任务。已提醒或无法联网时不反复提示，不擅自升级。
+- 用户说“@dyb-douyinbrain 更新”“$dyb-douyinbrain 更新”或要求更新本 Skill：这已是升级授权，直接运行 `scripts/invoke.ps1 update --apply`，不要求提供视频或重复确认。成功后重新读取输出 `skill_file` 所指的新 `SKILL.md` 和 `references/runtime.md`；必要时提示新会话加载新指令。
+- 版本检查和升级的具体命令、状态与失败处理见[运行命令与状态](references/runtime.md#版本检查与升级)。更新失败时保留现场，按结果说明阶段与备份，不将失败说成已升级。
 - 用户已明确转写、分析、改稿或入库：按本次原话记录用途并直接执行，不要求重复确认。
 - 只有素材、目标无法判断时：询问影响执行的用途；作者主页还需明确最新条数、日期范围或全部。短链解析后才发现是主页时，只补范围。
 - 继续同批任务时沿用已确认的风格和范围；新批次按新指令判断。

@@ -4,6 +4,8 @@
 
 本项目的入口和事实来源见 [SOURCE_OF_TRUTH.md](SOURCE_OF_TRUTH.md)。改动 Skill 时，请同时核对它引用的运行指南；改动安装器、下载或语音流程时，请更新受影响的中英文用户说明，保留已有数据与配置。
 
+分支、PR、版本号、发布验证及已有用户升级方式见[维护与发布指南](docs/RELEASING.md)（[English](docs/releasing.en.md)）。普通功能修改不要求每次升版本；是否推送、合并或发布以用户本次授权为准。
+
 ## 本地检查
 
 在 Windows 的 Python 环境中，从仓库根目录运行：

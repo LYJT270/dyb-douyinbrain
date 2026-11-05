@@ -44,6 +44,9 @@ jobs:
           & ./scripts/smoke_install.ps1 -PythonExecutable $dyPython
       - name: Build verified installation ZIP
         run: python -B -X utf8 scripts/package.py --output-dir dist
+      - name: Verify exactly the package that will be published
+        shell: pwsh
+        run: python -B -X utf8 scripts/verify_release.py --archive (Get-ChildItem dist -Filter '*.zip').FullName
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-installation-package
@@ -58,17 +61,27 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
-      - name: Build and publish tagged release
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: windows-installation-package
+          path: dist
+      - name: Publish the tested package from main
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $version = (Get-Content VERSION -Raw).Trim()
           if ($env:GITHUB_REF_NAME -ne "v$version") { throw 'Tag and VERSION differ' }
-          python -B -X utf8 scripts/package.py --output-dir dist
-          if ($LASTEXITCODE -ne 0) { throw 'Package failed' }
+          git merge-base --is-ancestor HEAD origin/main
+          if ($LASTEXITCODE -ne 0) { throw 'Only commits merged into main may be released' }
+          python -B -X utf8 scripts/verify_release.py --archive (Get-ChildItem dist -Filter '*.zip').FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Package verification failed' }
           gh release create $env:GITHUB_REF_NAME (Get-ChildItem dist -File).FullName --verify-tag --title "抖音脑 Douyin-brain $version" --notes-file "docs/releases/v$version.md"
           if ($LASTEXITCODE -ne 0) { throw 'Release failed; inspect existing release before retrying' }
+      - name: Verify the public download without credentials
+        run: python -B -X utf8 scripts/verify_release.py --download

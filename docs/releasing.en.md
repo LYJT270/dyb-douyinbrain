@@ -1,0 +1,107 @@
+# Maintenance and releases
+
+[中文](RELEASING.md)
+
+This guide covers maintenance, publishing, and [upgrading an existing installation](#upgrading-an-existing-installation). The public repository is the release source of truth; installed Skill copies are used to run the product.
+
+## Changes versus releases
+
+Routine fixes and features can be implemented and validated without increasing the version every time. A request to change a feature authorizes the change and appropriate checks; pushing, merging, and publishing require an explicit request to publish or update GitHub. Once release is authorized, complete that scope without repeatedly asking.
+
+If work begins in an older private Skill, compare the changes and port the needed program and documentation changes into the public source individually. Check compatibility and test them. Do not overwrite the repository with an installed copy or transfer credentials, browser state, media, cache, or task data.
+
+## Work on a branch and open a PR
+
+1. Start from current `main` on a `codex/...`, `feat/...`, or `fix/...` branch. Implement the change and update affected documentation.
+2. Run checks appropriate to the change. Whenever packaged source or documentation changes, run `python -B -X utf8 scripts/package.py --manifest-only` to update `bundle.json`, even if no release is planned. Check that the manifest includes the intended files and no user data.
+3. Open a PR following [CONTRIBUTING.md](../CONTRIBUTING.md). Describe the change, actual validation, and any installation, configuration, or data migration implications.
+4. Wait for the PR's `Windows / Python 3.12` check to succeed, keep the branch up to date with `main`, resolve conversations, and squash merge.
+
+The current `main` rules require a PR, the named Windows check, an up-to-date branch, and resolved conversations; there is no additional mandatory approval count for the individual maintainer. Check the actual GitHub settings if the rules change.
+
+## Prepare a version
+
+For a release, include these in the PR:
+
+- `VERSION`: follow [semantic versioning](https://semver.org/). Use PATCH for backward-compatible fixes, MINOR for backward-compatible features, and MAJOR for breaking changes. Assess installation arguments, data formats, and promised behavior the same way.
+- `CHANGELOG.md` and `docs/releases/vX.Y.Z.md`: describe the change, any upgrade considerations, actual validation, and unverified scenarios. Release notes must cover both Chinese and English.
+- `bundle.json`: once packaged files are final, run `python -B -X utf8 scripts/package.py --manifest-only`.
+
+Run tests appropriate to the change and ensure every claimed result has evidence. Do not claim live speech recognition, complete creator-profile pagination, or Agent sessions passed if they were not tested. Finish these changes and checks before the PR is merged.
+
+## Publish after merging
+
+Publishing requires Git, Python 3.12 or later, GitHub CLI (`gh`), and network access. Authenticate `gh` as an account with repository read and tag-push access; `gh auth status` shows its login status.
+
+After squash merge, confirm the current `main` commit contains the intended changes and wait for its `check.yml` **push** workflow to succeed. A passing PR check alone does not validate the merge commit.
+
+Use a clean local `main` matching `origin/main`, then run the preflight:
+
+```powershell
+git fetch origin main --tags
+git switch main
+git pull --ff-only origin main
+python -B -X utf8 scripts/release.py
+```
+
+The default invocation only checks readiness; it does not create a release tag. It checks the working tree and branch, `VERSION`, changelog, corresponding bilingual release notes, package manifest, successful `check.yml` push CI on the current remote `main` commit, and that the version is newer than previous stable tags. Resolve any reported problem without discarding existing work.
+
+When the user has explicitly requested a release, run:
+
+```powershell
+python -B -X utf8 scripts/release.py --publish
+```
+
+After successful preflight, this creates and pushes the `vX.Y.Z` tag, triggering GitHub Actions to build and publish. Use the output's Actions link to find the run for this tag; wait in the browser or with `gh run watch <run-id>`. Once it succeeds and the Release appears, verify the public download:
+
+```powershell
+python -B -X utf8 scripts/verify_release.py --download
+```
+
+The verifier downloads the current `VERSION` ZIP and SHA to `.scratch` and checks the SHA, ZIP CRC, complete file set, and consistency of the packaged `bundle.json` with the source. To verify a local package instead, put its matching `.zip.sha256` file beside the ZIP. The local package must also match the current source version and manifest:
+
+```powershell
+python -B -X utf8 scripts/verify_release.py --archive '<path-to-local-zip>'
+```
+
+Report the release and package verification as complete only after the public download check succeeds. Separately identify scenarios the checks did not establish, such as live speech service, complete profile pagination, and individual Agent sessions.
+
+## Upgrading an existing installation
+
+### First transition from 1.0.0 or 1.0.1
+
+The older versions do not have the update feature. First manually install 1.1.0, or a later version that already includes the updater:
+
+1. Download and extract the installation ZIP from the [latest Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest).
+2. Run the new installer as the same Windows user. For a default installation, double-click `install.cmd`. If the original installation used `-Agent`, `-SkillsRoot`, `-Workspace`, or `-Vault`, use the same arguments or ask your Agent to do so. This lets the installer reuse the registered workspace and local settings; preserve existing data and configuration.
+3. Run `doctor` using the `entrypoint` from the installation result, then check actual behavior with a low-impact task such as an existing text of your choice. A live speech test requires authorized material and may incur charges.
+4. Ask the Agent to reread the installed `SKILL.md`, or start a new conversation. Updating files does not automatically replace a previously loaded Skill in the current context.
+
+### Version 1.1.0 and later
+
+When a new task starts, the Skill checks GitHub for the latest stable release and notifies you if an update is available; it does not install automatically. Checks use a 24-hour cache. `plan` and `plan-text` notify at most once a day for the same new version. An offline or failed check does not block the original task; media downloads and cloud speech recognition still need their respective network access.
+
+To update, say “`@dyb-douyinbrain 更新`” or “`$dyb-douyinbrain 更新`”; if your Agent does not support those forms, say “Use dyb-douyinbrain to update itself.” When explicitly requested, the program downloads the official Release ZIP, checks its external SHA-256 and complete internal manifest, and runs the installer using the installed Skill's real location, existing workspace, and local state. The installer preserves backups of local program changes and keeps existing data. Afterwards, run local `doctor` and an appropriate functional check, then ask the Agent to reread the new `SKILL.md` or start a new conversation.
+
+For a manual check or diagnosis, use the installed Skill's entry point:
+
+```powershell
+$dyRun = '<installed Skill>\scripts\invoke.ps1'
+& $dyRun check-update          # Uses the 24-hour cache
+& $dyRun check-update --force  # Forces a query
+& $dyRun update                # Checks only; does not install
+& $dyRun update --apply        # Only after the user explicitly requests an update
+```
+
+Set `$env:DYB_UPDATE_CHECK = '0'` to disable routine checks for the current PowerShell process and its children. Explicit `update --apply` remains available.
+
+The installer and `doctor` report local status only. `awaiting_api` indicates missing speech credentials and still allows existing-text work. See [INSTALL.md](../INSTALL.md) for configuration and arguments.
+
+## Failures, fixes, and rollback
+
+- Do not rewrite or delete official `v*` tags. Preserve published Releases and assets; do not overwrite an older tag or asset after a failure.
+- If tagging or publication is interrupted, inspect the Actions run and Release for that tag before choosing the next step.
+- For a defect in a published version, fix it in a new PR and publish a new patch. To remove a feature, use a revert PR and publish a new version.
+- Before a user returns to an older ZIP, consult the relevant migration notes, preserve data and configuration, and check compatibility. Do not delete user data as a rollback step.
+
+References: [GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow), [Semantic Versioning 2.0.0](https://semver.org/).
