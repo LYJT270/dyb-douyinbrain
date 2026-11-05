@@ -54,7 +54,7 @@ For installation stages, options, setup, and troubleshooting, see the [English g
 
 ### Upgrade an existing installation
 
-**Users of 1.0.0 and 1.0.1 must first install 1.1.0 manually once** (or a later version that already includes the updater): download and extract the [latest installation ZIP](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest), then run the installer as the same Windows user. Reuse the original Agent and path arguments if you customized them, so the installer can use your existing data and settings. After a local `doctor` and a functional check, ask your Agent to reread the installed `SKILL.md` or start a new conversation.
+**Users of 1.0.0 and 1.0.1 must first manually install the latest stable release once**: download and extract the [latest installation ZIP](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest), then run the installer as the same Windows user. Reuse the original Agent and path arguments if you customized them, so the installer can use your existing data and settings. After a local `doctor` and a functional check, ask your Agent to reread the installed `SKILL.md` or start a new conversation.
 
 Starting with 1.1.0, a new task checks for the latest stable release and notifies you of an update without installing it automatically. To update, say “`@dyb-douyinbrain 更新`” or “`$dyb-douyinbrain 更新`”; if your Agent does not support those invocation forms, say “Use dyb-douyinbrain to update itself.” The Agent verifies the official package and updates only when you explicitly request it. A failed network check does not block the original task; media downloads and cloud speech recognition still require network access. See the [upgrade steps](docs/releasing.en.md#upgrading-an-existing-installation).
 
