@@ -133,8 +133,8 @@ def checked_content(task: dict, kind: str, root: Path) -> list[dict]:
 
 def numbers(task: dict, root: Path) -> list[int]:
     jobs = root / "runs" / task["id"] / "jobs.json"
-    order = {x["id"]: n for n, x in enumerate(read_json(jobs), 1)} if jobs.exists() else {}
-    return [order.get(item["id"], n) for n, item in enumerate(task["results"], 1)]
+    order = {x["id"]: x.get('number', n) for n, x in enumerate(read_json(jobs), 1)} if jobs.exists() else {}
+    return [item.get('number', order.get(item["id"], n)) for n, item in enumerate(task["results"], 1)]
 
 
 def deliver(task_id: str, kind: str = "review", root: Path = ROOT) -> dict:

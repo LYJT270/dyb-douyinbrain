@@ -1,0 +1,4 @@
+interface:
+  display_name: "抖音脑 · 转写校对"
+  short_description: "转写抖音与本地音视频，校对文字并处理相关字幕或导出。"
+  default_prompt: "使用 $dyb-transcribe 转写并校对我提供的音视频。"

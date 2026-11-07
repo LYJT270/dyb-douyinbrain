@@ -5,6 +5,7 @@ import json
 import os
 import re
 import tempfile
+import contextlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -12,6 +13,26 @@ RESOURCE_ROOT = Path(__file__).resolve().parents[1]
 SKILL_ROOT = RESOURCE_ROOT.parents[1]
 ROOT = Path(os.environ.get("DYB_WORKSPACE", str(Path.home() / "Documents" / "dyb-douyinbrain"))).expanduser().resolve()
 SHANGHAI = timezone(timedelta(hours=8))
+
+
+@contextlib.contextmanager
+def artifact_lock(folder: Path):
+    import msvcrt
+    folder.mkdir(parents=True, exist_ok=True)
+    with (folder / 'work.lock').open('a+b') as handle:
+        if handle.tell() == 0:
+            handle.write(b'0')
+            handle.flush()
+        handle.seek(0)
+        try:
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError:
+            raise RuntimeError('另一个任务正在处理同一媒体，请等待其完成，避免重复调用') from None
+        try:
+            yield
+        finally:
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def now() -> str:

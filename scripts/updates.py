@@ -11,6 +11,7 @@ from urllib.error import URLError
 import uuid
 
 from release_assets import download_release, extract_verified, latest_release, version_tuple
+from suite_manifest import check_installed
 
 CACHE_SECONDS = 24 * 60 * 60
 
@@ -147,6 +148,22 @@ def restore_program(skill: Path, backup: str | None, old_version: str) -> str | 
     return str(failed)
 
 
+def restore_suite(source: Path, skill: Path, state: Path, result: dict, old_version: str) -> dict:
+    journal = Path(result['suite_transaction']).resolve()
+    if journal != (state / 'suite-install.json').resolve():
+        raise ValueError('Unexpected suite rollback journal')
+    process = subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
+                              str(source / 'scripts/restore-suite.ps1'), '-TransactionPath', str(journal),
+                              '-SkillsRoot', str(skill.parent)], capture_output=True, timeout=120)
+    restored = json.loads(process.stdout.decode('utf-8-sig'))
+    if process.returncode or restored.get('status') != 'rolled_back':
+        raise ValueError('Suite rollback did not complete: ' + restored.get('error', str(process.returncode)))
+    intact = (skill / 'VERSION').is_file() and (skill / 'VERSION').read_text().strip() == old_version
+    # Original directories may include user edits; restore them byte-for-byte, not to a release hash.
+    failed = [row['failed_backup'] for row in restored['entries'] if Path(row['failed_backup']).is_dir()]
+    return {'program_restored': intact, 'failed_program_backups': failed, 'suite_rollback': restored['status']}
+
+
 def apply_update(skill: Path, state: Path, workspace: Path) -> dict:
     skill, state, workspace = skill.resolve(), state.resolve(), workspace.resolve()
     if (skill / ".git").exists():
@@ -191,10 +208,21 @@ def apply_update(skill: Path, state: Path, workspace: Path) -> dict:
                    and Path(result.get("skill", "")).resolve() == skill
                    and Path(result.get("workspace", "")).resolve() == workspace
                    and (skill / "VERSION").is_file() and (skill / "VERSION").read_text().strip() == info["version"])
+        suite = None
+        if success:
+            try:
+                suite = check_installed(skill)
+            except (OSError, ValueError, KeyError) as exc:
+                result['suite_error'] = str(exc)
+                success = False
         if not success:
-            failed = restore_program(skill, result.get("backup"), old_version)
+            if result.get('suite_transaction'):
+                restored = restore_suite(source, skill, state, result, old_version)
+            else:
+                failed = restore_program(skill, result.get("backup"), old_version)
+                restored = {'program_restored': failed is not None, 'failed_program_backup': failed}
             failure = {"status": "failed", "stage": "install", "previous_version": old_version,
-                       "program_restored": failed is not None, "failed_program_backup": failed,
+                       **restored,
                        "install_result": result, "log": str(stage / "install.log")}
             save_json(state / "update-result.json", failure)
             return failure
@@ -202,6 +230,7 @@ def apply_update(skill: Path, state: Path, workspace: Path) -> dict:
         completed = {"status": "updated", "previous_version": old_version, "current_version": installed_version,
                      "workspace": str(workspace), "skill_file": str(skill / "SKILL.md"), "backup": result.get("backup"),
                      "local_entry_verified": True, "live_asr_requests": 0,
+                     "suite": suite,
                      "next_action": "重新读取新版 SKILL.md 和 references/runtime.md；Agent 若仍缓存旧指令，请新建会话。"}
         save_json(state / "update-result.json", completed)
         return completed

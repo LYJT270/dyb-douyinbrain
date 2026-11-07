@@ -1,0 +1,4 @@
+interface:
+  display_name: "抖音脑 · 内容分析"
+  short_description: "分析抖音作品、博主主页或本地音视频，说明依据和范围。"
+  default_prompt: "使用 $dyb-analyze 分析我提供的抖音内容。"

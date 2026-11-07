@@ -53,12 +53,14 @@ def video_id(url: str) -> str:
 
 
 def visible_blocker(text: str) -> str | None:
-    # A generic login button or an empty response is not evidence of a login wall.
-    if re.search(r"请完成.{0,12}验证|拖动滑块|安全验证|验证码|验证后继续", text):
+    # Accept a short, standalone blocking instruction, not words quoted in a title.
+    # Browser callers pass visible blocker containers (never the whole page body).
+    text = re.sub(r"\s+", "", text).strip("。！!：:")
+    if re.fullmatch(r"(?:请完成(?:安全|以下|身份)?验证|请?拖动滑块(?:完成验证)?|安全验证|验证后继续|请进行安全验证)", text):
         return "verification_required"
-    if re.search(r"登录后才能观看|登录后观看|请登录后继续|登录后查看完整|登录后查看作品", text):
+    if re.fullmatch(r"(?:登录后才能观看|登录后观看|请登录后继续|登录后查看完整(?:视频|内容)?|登录后查看作品)", text):
         return "login_required"
-    if re.search(r"视频不存在|作品不存在|视频已删除|作品已删除|暂时无法播放|无权观看|仅作者可见", text):
+    if re.fullmatch(r"(?:视频不存在|作品不存在|视频已删除|作品已删除|暂时无法播放|无权观看|仅作者可见)", text):
         return "media_unavailable"
     return None
 

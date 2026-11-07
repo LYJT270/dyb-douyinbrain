@@ -1,0 +1,4 @@
+interface:
+  display_name: "抖音脑 · 知识归档"
+  short_description: "按明确要求归档相关材料或编译主题页，并核对写入状态。"
+  default_prompt: "使用 $dyb-knowledge 归档我指定的材料。"

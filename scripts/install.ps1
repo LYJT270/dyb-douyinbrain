@@ -2,6 +2,7 @@
     [ValidateSet('auto','shared','deepseek','codex','claude','gemini','cursor','opencode','all','custom')]
     [string]$Agent = 'auto',
     [string]$StateDirectory,
+    [string]$LegacyStateDirectory,
     [string]$SkillsRoot,
     [string]$DataDirectory,
     [string]$Workspace,
@@ -9,6 +10,7 @@
     [switch]$CreateVault,
     [string]$PythonExecutable,
     [switch]$NoApiWindow,
+    [switch]$ConfigureSpeech,
     [switch]$SkipDependencies
 )
 $ErrorActionPreference = 'Stop'
@@ -18,6 +20,9 @@ if ($sourceItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
     $sourceRoot = [IO.Path]::GetFullPath([string]($sourceItem.Target | Select-Object -First 1))
 }
 . (Join-Path $PSScriptRoot 'paths.ps1')
+. (Join-Path $PSScriptRoot 'migration.ps1')
+. (Join-Path $PSScriptRoot 'suite-install.ps1')
+. (Join-Path $PSScriptRoot 'suite-guard.ps1')
 if ($StateDirectory) { $env:DYB_STATE_DIR = [IO.Path]::GetFullPath($StateDirectory) }
 $stateRoot = Get-DybStateRoot
 $explicitSkillsRoot = [bool]$SkillsRoot
@@ -28,6 +33,12 @@ $backupPath = $null
 $discoveryLink = $null
 $localEntryVerified = $false
 $doctor = $null
+$migration = $null
+$suiteTransaction = $null
+$suiteVerified = $false
+$suiteRollback = $null
+$installationLock = $null
+$previousTransaction = $env:DYB_SUITE_TRANSACTION
 
 function Save-InstallResult([hashtable]$Value, [switch]$Quiet) {
     New-Item -ItemType Directory -Path $stateRoot -Force | Out-Null
@@ -43,8 +54,25 @@ function Save-InstallResult([hashtable]$Value, [switch]$Quiet) {
     }
     if ($Workspace) { $Value.workspace_entry = Join-Path $Workspace 'AGENTS.md' }
     $Value.local_entry_verified = $localEntryVerified
+    if ($suiteTransaction) {
+        $Value.suite_transaction = $suiteTransaction.journal
+        $Value.suite_verified = $suiteVerified
+        $Value.suite_members = @($suiteTransaction.entries | ForEach-Object {
+            @{name=$_.name;skill_file=(Join-Path $_.target 'SKILL.md');version=$suiteTransaction.version}
+        })
+    }
+    if ($suiteRollback) { $Value.suite_rollback = $suiteRollback }
     if ($doctor) { $Value.execution_route = $doctor.execution_route }
-    $Value.next_action_for_agent = '立即读取 skill_file 和 runtime_reference，在当前对话使用 entrypoint；媒体转写走随包程序及豆包 API，缺项先修复，不自行转到网页识别。'
+    if ($migration) {
+        $Value.migration = @{backup=$migration.backup;aliases=$migration.aliases;workspace=$migration.workspace}
+    }
+    if ($targetRoot) { $Value.onboarding_reference = Join-Path $targetRoot 'references\onboarding.md' }
+    if ($doctor) { $Value.onboarding = $doctor.onboarding }
+    $Value.welcome_command = 'welcome'
+    $Value.next_action_for_agent = '读取 skill_file 和 onboarding_reference；用 entrypoint welcome 获取功能与可用状态，首次使用先在聊天展示再 welcome --acknowledge。按用户需求补配置和执行，不要求用户学命令；正文或分析先在聊天交付，文件作补充。'
+    if ($Value.status -eq 'needs_workspace_choice') {
+        $Value.next_action_for_agent = 'Ask the user once which candidate workspace to keep, then rerun with -Workspace. Do not merge workspaces.'
+    }
     $temporaryResult = $resultPath + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
     $Value | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $temporaryResult -Encoding UTF8
     Move-Item -LiteralPath $temporaryResult -Destination $resultPath -Force
@@ -64,12 +92,11 @@ function Invoke-Brain([string]$PythonPath, [string]$BrainPath, [string[]]$Comman
     return $value
 }
 try {
+    New-Item -ItemType Directory -Path $stateRoot -Force | Out-Null
+    $installationLock = [IO.File]::Open((Join-Path $stateRoot 'install.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
     $manifest = Get-Content -LiteralPath (Join-Path $sourceRoot 'bundle.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     foreach ($item in $manifest.file_sha256.PSObject.Properties) {
-        $source = [IO.Path]::GetFullPath((Join-Path $sourceRoot $item.Name))
-        if (-not $source.StartsWith($sourceRoot.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
-            throw '迁移包清单包含超出程序目录的路径。'
-        }
+        $source = Resolve-DybPayloadFile $sourceRoot $item.Name
         if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or
             (Get-ContentSha256 $source) -ne $item.Value) {
             throw ('迁移包文件缺失或校验不一致：' + $item.Name)
@@ -78,6 +105,27 @@ try {
     $SkillsRoot = Get-DybSkillsRoot $Agent $SkillsRoot
     $skillsPath = [IO.Path]::GetFullPath($SkillsRoot)
     $targetRoot = [IO.Path]::GetFullPath((Join-Path $skillsPath 'dyb-douyinbrain'))
+    $stage = 'discover_existing_workspaces'
+    $migration = Get-DybMigrationPlan $stateRoot $skillsPath $Workspace $LegacyStateDirectory
+    if ($migration.choice_required) {
+        Save-InstallResult @{status='needs_workspace_choice';stage=$stage;candidates=$migration.candidates;live_asr_requests=0}
+        exit 2
+    }
+    if ($migration.workspace) { $Workspace = $migration.workspace }
+    $welcomeCatalog = Get-Content -LiteralPath (Join-Path $sourceRoot 'assets\capabilities.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $priorIntroduction = $null
+    if ($Workspace -and (Test-Path -LiteralPath (Join-Path $Workspace '.local\onboarding.json'))) {
+        try { $priorIntroduction = Get-Content -LiteralPath (Join-Path $Workspace '.local\onboarding.json') -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $priorIntroduction = $null }
+    }
+    if (-not $priorIntroduction -or $priorIntroduction.presented_revision -ne $welcomeCatalog.revision) {
+        Write-Output $welcomeCatalog.intro.zh
+        foreach ($feature in $welcomeCatalog.capabilities) {
+            Write-Output ($feature.zh.title + '：' + $feature.zh.example)
+            Write-Output ('  ' + $feature.zh.outcome)
+        }
+        foreach ($note in $welcomeCatalog.notes.zh) { Write-Output $note }
+    }
+    Backup-DybMigration $migration $stateRoot
     if ((Split-Path -Parent $targetRoot) -ne $skillsPath.TrimEnd('\')) { throw '安装目标不在指定 skills 目录内。' }
     if (Test-Path -LiteralPath $targetRoot) {
         $targetItem = Get-Item -LiteralPath $targetRoot
@@ -95,36 +143,10 @@ try {
             $skillsPath = Split-Path -Parent $targetRoot
         }
     }
-    if ($sourceRoot -ne $targetRoot) {
-        $stage = 'install_skill'
-        if (Test-Path -LiteralPath $targetRoot) {
-            if ((Get-Item -LiteralPath $targetRoot).Attributes -band [IO.FileAttributes]::ReparsePoint) {
-                throw '同名安装目录为链接，请由 Agent 核对其真实维护位置后继续，不能直接覆盖。'
-            }
-            $same = $true
-            foreach ($item in $manifest.file_sha256.PSObject.Properties) {
-                $existing = Join-Path $targetRoot $item.Name
-                if (-not (Test-Path -LiteralPath $existing -PathType Leaf) -or
-                    (Get-ContentSha256 $existing) -ne $item.Value) { $same = $false; break }
-            }
-            if (-not $same) {
-                $backupRoot = [IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $skillsPath) '.trash'))
-                $backupPath = [IO.Path]::GetFullPath((Join-Path $backupRoot ((Get-Date -Format 'yyyy-MM-dd') + '_dyb-douyinbrain_' + [Guid]::NewGuid().ToString('N').Substring(0,8))))
-                if (-not $backupPath.StartsWith($backupRoot.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) { throw '备份目标超出允许目录。' }
-                # Both absolute move targets were checked against the explicitly named roots above.
-                New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
-                Save-InstallResult @{status='installing';stage='backup_skill';skill=$targetRoot;version=$manifest.version;workspace=$Workspace;backup=$backupPath} -Quiet
-                Move-Item -LiteralPath $targetRoot -Destination $backupPath
-            }
-        }
-        New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
-        foreach ($name in @($manifest.file_sha256.PSObject.Properties.Name) + @('bundle.json')) {
-            $destination = Join-Path $targetRoot $name
-            New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
-            Copy-Item -LiteralPath (Join-Path $sourceRoot $name) -Destination $destination -Force
-        }
-    }
-    $discoveryLink = Register-DybClaudeLink $targetRoot $Agent $explicitSkillsRoot
+    $stage = 'install_suite'
+    Start-DybSuiteInstall $sourceRoot $targetRoot $stateRoot $manifest
+    $null = Assert-DybSuiteAvailable $targetRoot
+    $suiteVerified = $true
     $stage = 'configure_workspace'
     if (-not $DataDirectory) {
         $DataDirectory = [Environment]::GetFolderPath('MyDocuments')
@@ -142,7 +164,7 @@ try {
     if (Test-Path -LiteralPath (Join-Path $Workspace 'config.json')) {
         $cfg = Get-Content -LiteralPath (Join-Path $Workspace 'config.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     }
-    if (-not $Vault -and -not $cfg.vault_root) {
+    if (-not $Vault -and -not $cfg.vault_root -and $CreateVault) {
         $baseVault = Join-Path $DataDirectory 'dyb-douyinbrain-知识库'
         $Vault = $baseVault
         $suffix = 2
@@ -172,6 +194,12 @@ try {
     $stage = 'environment_check'
     $doctor = Invoke-Brain $pythonPath $brainPath @('doctor') -AllowIncomplete
     if ($SkipDependencies) {
+        Register-DybLegacyAliases $migration $targetRoot $stateRoot
+        Complete-DybSuiteInstall $suiteTransaction
+        foreach ($entry in $suiteTransaction.entries) {
+            $link = Register-DybClaudeLink $entry.target $Agent $explicitSkillsRoot
+            if ($entry.name -eq 'dyb-douyinbrain') { $discoveryLink = $link }
+        }
         Save-InstallResult @{status='dependencies_pending';stage=$stage;skill=$targetRoot;version=$manifest.version;workspace=$Workspace;vault_root=$doctor.vault_root;checks=$doctor.checks;test_mode=$true;backup=$backupPath;doubao_api_status='not_checked'}
         exit 0
     }
@@ -187,7 +215,7 @@ try {
         ($entryDoctor.execution_route.asr_provider -eq 'doubao_voice_api') -and
         ($entryDoctor.execution_route.web_transcription_fallback -eq $false)
     if (-not $localEntryVerified) { throw '本地入口、工作目录或豆包执行路线不一致，未完成安装。' }
-    if (-not $doctor.doubao_credentials_present -and -not $NoApiWindow) {
+    if (-not $doctor.doubao_credentials_present -and $ConfigureSpeech -and -not $NoApiWindow) {
         $stage = 'awaiting_api'
         Save-InstallResult @{status='awaiting_api';stage=$stage;skill=$targetRoot;version=$manifest.version;workspace=$Workspace;vault_root=$doctor.vault_root;backup=$backupPath}
         Write-Output '请在本机窗口填写豆包语音 API Key 并保存，安装器会自动检查，不需要回复已保存。'
@@ -196,8 +224,25 @@ try {
         $doctor = Invoke-Brain $pythonPath $brainPath @('doctor') -AllowIncomplete
     }
     $status = if ($doctor.doubao_credentials_present) { 'installed' } else { 'awaiting_api' }
+    $stage = 'legacy_aliases'
+    Register-DybLegacyAliases $migration $targetRoot $stateRoot
+    Complete-DybSuiteInstall $suiteTransaction
+    foreach ($entry in $suiteTransaction.entries) {
+        $link = Register-DybClaudeLink $entry.target $Agent $explicitSkillsRoot
+        if ($entry.name -eq 'dyb-douyinbrain') { $discoveryLink = $link }
+    }
     Save-InstallResult @{status=$status;stage='complete';skill=$targetRoot;version=$manifest.version;workspace=$Workspace;vault_root=$doctor.vault_root;checks=$doctor.checks;credentials_present=$doctor.doubao_credentials_present;doubao_api_status=$doctor.doubao_api_status;backup=$backupPath;live_asr_requests=0}
 } catch {
-    Save-InstallResult @{status='failed';stage=$stage;skill=$targetRoot;workspace=$Workspace;backup=$backupPath;error=$_.Exception.Message;live_asr_requests=0}
+    $failureMessage = $_.Exception.Message
+    if ($suiteTransaction -and $suiteTransaction.status -notin @('committed','rolled_back')) {
+        try {
+            $suiteTransaction = Undo-DybSuiteInstall $suiteTransaction
+            $suiteRollback = @{status=$suiteTransaction.status;entries=$suiteTransaction.entries}
+        } catch { $suiteRollback = @{status='failed';error=$_.Exception.Message} }
+    }
+    Save-InstallResult @{status='failed';stage=$stage;skill=$targetRoot;workspace=$Workspace;backup=$backupPath;error=$failureMessage;live_asr_requests=0}
     exit 1
+} finally {
+    if ($installationLock) { $installationLock.Dispose() }
+    $env:DYB_SUITE_TRANSACTION = $previousTransaction
 }

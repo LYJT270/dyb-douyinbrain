@@ -39,7 +39,7 @@ def main() -> int:
             skill_root, state_root(), force=options.force, notify=remaining[0] == "check-update")
         print(json.dumps(result, ensure_ascii=False))
         return int(apply and result["status"] not in {"updated", "up_to_date"})
-    if remaining and remaining[0] in {"plan", "plan-text"}:
+    if remaining and (remaining[0] in {"plan", "plan-text"} or remaining[:2] == ['creator', 'plan']):
         from updates import notify_on_task, state_root
         notify_on_task(skill_root, state_root())
     sys.path.insert(0, str(resource))

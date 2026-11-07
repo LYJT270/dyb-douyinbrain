@@ -9,13 +9,14 @@ from pathlib import Path
 import re
 import uuid
 import zipfile
+from suite_manifest import validate_suite
 
 EXCLUDED = {".venv", ".local", ".cache", "__pycache__", "runs", "outputs", ".git", ".scratch", ".trash", "tests", "dist", "exports"}
 SUFFIXES = {".md", ".py", ".ps1", ".cmd", ".txt", ".yaml", ".html", ".png", ".svg", ".json"}
 ROOT_FILES = {"SKILL.md", "INSTALL.md", "README.md", "README.en.md", "LICENSE", "VERSION",
               "THIRD_PARTY_NOTICES.md", "CHANGELOG.md", "SECURITY.md", "SOURCE_OF_TRUTH.md",
               "CONTRIBUTING.md", "给Agent的安装提示词.txt", "豆包配置教程.html"}
-PAYLOAD_DIRS = {"scripts", "references", "agents", "assets", "docs"}
+PAYLOAD_DIRS = {"scripts", "references", "agents", "assets", "docs", "skills"}
 
 
 def collect(skill: Path) -> dict[str, bytes]:
@@ -42,9 +43,13 @@ def make_manifest(skill: Path, version: str, payload=None) -> dict:
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise ValueError("Version must use major.minor.patch")
     payload = collect(skill) if payload is None else payload
-    return {"name": "dyb-douyinbrain", "display_name": "抖音脑 Douyin-brain", "version": version,
+    manifest = {"name": "dyb-douyinbrain", "display_name": "抖音脑 Douyin-brain", "version": version,
             "platform": "windows", "license": "MIT", "repository": "https://github.com/ScarfaceAI/dyb-douyinbrain",
             "file_sha256": {p: hashlib.sha256(data).hexdigest() for p, data in sorted(payload.items())}}
+    if 'assets/skill-suite.json' in payload:
+        suite = json.loads(payload['assets/skill-suite.json'].decode('utf-8-sig'))
+        manifest['skill_suite'] = validate_suite(suite, payload)
+    return manifest
 
 
 def write_manifest(skill: Path, version: str) -> dict:
@@ -57,8 +62,14 @@ def write_manifest(skill: Path, version: str) -> dict:
 def normalize_text_files(skill: Path) -> None:
     """Match .gitattributes so source ZIPs and Git checkouts have identical hashes."""
     for name, data in collect(skill).items():
-        if Path(name).suffix.lower() not in {".png", ".jpg"} and b"\r\n" in data:
-            (skill / name).write_bytes(data.replace(b"\r\n", b"\n"))
+        if Path(name).suffix.lower() in {".png", ".jpg"}:
+            continue
+        normalized = data.replace(b"\r\n", b"\n")
+        # Windows PowerShell 5.1 otherwise reads UTF-8 scripts using the system code page.
+        if Path(name).suffix.lower() == '.ps1' and not normalized.startswith(b'\xef\xbb\xbf'):
+            normalized = b'\xef\xbb\xbf' + normalized
+        if normalized != data:
+            (skill / name).write_bytes(normalized)
 
 
 def move_to_trash(source: Path, output: Path, trash: Path) -> Path:

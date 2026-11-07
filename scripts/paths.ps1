@@ -22,14 +22,15 @@ function Register-DybClaudeLink([string]$Target, [string]$AgentName, [bool]$Cust
     if ($CustomRoot -or $AgentName -notin @('auto','all')) { return $null }
     $claudeHome = Join-Path $env:USERPROFILE '.claude'
     if ($AgentName -eq 'auto' -and -not (Test-Path -LiteralPath $claudeHome)) { return $null }
-    $link = Join-Path $claudeHome 'skills\dyb-douyinbrain'
+    $memberName = Split-Path -Leaf $Target
+    $link = Join-Path (Join-Path $claudeHome 'skills') $memberName
     if (Test-Path -LiteralPath $link) {
         $item = Get-Item -LiteralPath $link
         $existing = [string]($item.Target | Select-Object -First 1)
         if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -and $existing -and
             ([IO.Path]::GetFullPath($existing) -eq [IO.Path]::GetFullPath($Target))) { return $link }
         # Keep independent installations intact. The shared installation still succeeds.
-        Write-Warning 'Claude has an independent dyb-douyinbrain installation; it was preserved. Update it with -Agent claude when needed.'
+        Write-Warning ('Claude has an independent ' + $memberName + ' installation; it was preserved. Update it with -Agent claude when needed.')
         return $null
     }
     New-Item -ItemType Directory -Path (Split-Path -Parent $link) -Force | Out-Null

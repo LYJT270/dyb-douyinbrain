@@ -19,6 +19,7 @@ os.environ["DYB_WORKSPACE"] = str(DEFAULT_WORKSPACE)
 os.environ["DYB_UPDATE_CHECK"] = "0"  # Offline tests never query public releases.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SKILL_ROOT / "scripts" / "runtime"))
+sys.path.insert(0, str(SKILL_ROOT / "scripts"))
 
 from douyin_text import asr, content, credentials, vault, workflow  # noqa: E402
 from douyin_text.common import read_json, write_json  # noqa: E402

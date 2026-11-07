@@ -7,15 +7,43 @@ from __future__ import annotations
 
 import json
 import re
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote, urlsplit, parse_qs
 from urllib.request import Request, urlopen
 
 from . import acquisition
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+_reusing = False
+_shared_driver = None
+_shared_browser = None
+
+
+@contextmanager
+def reuse_sessions():
+    """One lazy browser per acquisition worker; every link gets a fresh context."""
+    global _reusing, _shared_driver, _shared_browser
+    _reusing = True
+    try:
+        yield
+    finally:
+        if _shared_browser is not None:
+            _shared_browser.close()
+        if _shared_driver is not None:
+            _shared_driver.stop()
+        _reusing, _shared_driver, _shared_browser = False, None, None
+
+
+def _driver():
+    global _shared_driver
+    from playwright.sync_api import sync_playwright
+    if not _reusing:
+        return sync_playwright()
+    if _shared_driver is None:
+        _shared_driver = sync_playwright().start()
+    return nullcontext(_shared_driver)
 
 
 def resolve_url(url: str) -> str:
@@ -38,8 +66,15 @@ def normalize(item: dict) -> dict | None:
     video = item.get("video") or {}
     if not ident.isdigit() or not isinstance(video, dict) or item.get("images"):
         return None
-    addresses = []
-    for key in ("play_addr", "play_addr_h264", "play_addr_265"):
+    # Prefer a complete, reasonably sized MP4 rendition. DASH entries may be
+    # video-only; never mistake their missing voice track for transcription input.
+    renditions = [entry.get('play_addr', {}) for entry in video.get('bit_rate', [])
+                  if isinstance(entry, dict) and entry.get('format') == 'mp4']
+    eligible = [entry for entry in renditions if isinstance(entry, dict)
+                and min(entry.get('width', 0), entry.get('height', 0)) >= 540 and entry.get('url_list')]
+    chosen = min(eligible, key=lambda entry: entry.get('data_size') or float('inf')) if eligible else None
+    addresses = list(chosen.get('url_list', [])) if chosen else []
+    for key in (() if chosen else ("play_addr", "play_addr_h264", "play_addr_265")):
         address = video.get(key) or {}
         if isinstance(address, dict):
             addresses.extend(address.get("url_list") or [])
@@ -57,10 +92,12 @@ def normalize(item: dict) -> dict | None:
         except (OverflowError, OSError, ValueError):
             pass
     duration = video.get("duration", item.get("duration"))
+    from .catalog import variants
     return {"id": "douyin-" + ident, "title": item.get("desc") or ident,
             "author": author.get("nickname") or "未知作者", "source": "https://www.douyin.com/video/" + ident,
             "media": media, "duration": float(duration) / 1000 if isinstance(duration, (int, float)) else None,
-            "published": published}
+            "published": published, 'media_variant': {k: chosen.get(k) for k in ('width', 'height', 'data_size')} if chosen else None,
+            'media_variants': variants(video)}
 
 
 def video_records(value):
@@ -127,28 +164,100 @@ def _context(playwright, profile: Path, *, headless=True):
 @contextmanager
 def _session(playwright, profile: Path | None):
     """Normal acquisition always stays headless; only explicit login opens a window."""
+    global _shared_browser
     browser = None
     context = None
     try:
         if profile is not None:
             context = _context(playwright, profile, headless=True)
         else:
-            browser = playwright.chromium.launch(headless=True)
+            if _reusing:
+                if _shared_browser is None:
+                    _shared_browser = playwright.chromium.launch(headless=True)
+                browser = _shared_browser
+            else:
+                browser = playwright.chromium.launch(headless=True)
             context = browser.new_context(viewport={"width": 1440, "height": 1000},
-                                          locale="zh-CN", user_agent=USER_AGENT)
+                                          locale="zh-CN")
         yield context
     finally:
         if context is not None:
             context.close()
-        if browser is not None:
+        if browser is not None and browser is not _shared_browser:
             browser.close()
 
 
 def _visible_blocker(page) -> str | None:
     try:
-        return acquisition.visible_blocker(page.locator("body").inner_text(timeout=2000))
+        containers = page.locator('[role="dialog"], [aria-modal="true"], [id*="captcha"], '
+                                  '[class*="captcha"], [data-e2e="video-error"]')
+        for container in containers.all():
+            if not container.is_visible():
+                continue
+            for line in container.inner_text(timeout=1000).splitlines():
+                reason = acquisition.visible_blocker(line)
+                if reason:
+                    return reason
     except Exception:
-        return None
+        pass
+    return None
+
+
+def _browser_detail(page, ident: str) -> dict:
+    """Let the site's loaded visitor SDK prepare its own ordinary XHR request.
+
+    No generated signatures, imported cookies, account login or CAPTCHA solving.
+    Return response facts separately; an empty/forbidden API is not a login wall.
+    """
+    if not ident.isdigit():
+        raise ValueError('视频 ID 无效')
+    return page.evaluate('''id => new Promise(resolve => {
+        const xhr = new XMLHttpRequest();
+        xhr.timeout = 15000;
+        xhr.open('GET', '/aweme/v1/web/aweme/detail/?device_platform=webapp&aid=6383&channel=channel_pc_web&aweme_id=' + id);
+        xhr.onload = () => {let data=null; try {data=JSON.parse(xhr.responseText)} catch (_) {}
+            resolve({http_status:xhr.status, data:data, response_bytes:xhr.responseText.length});};
+        xhr.onerror = () => resolve({http_status:0, error:'network_error'});
+        xhr.ontimeout = () => resolve({http_status:0, error:'navigation_timeout'});
+        xhr.send();
+    })''', ident)
+
+
+def _browser_profile_page(page, user_id: str, cursor=0, template=None) -> dict:
+    """Use the public site's own visitor XHR, without generating request signatures."""
+    return page.evaluate('''args => new Promise(resolve => {
+        const endpoint = args.template ? new URL(args.template, location.href) : null;
+        const params = endpoint ? endpoint.searchParams : new URLSearchParams({device_platform:'webapp', aid:'6383', channel:'channel_pc_web'});
+        for (const key of ['a_bogus','X-Bogus','x-bogus']) params.delete(key);
+        params.set('sec_user_id', args.id); params.set('max_cursor', String(args.cursor || 0)); params.set('count', '20');
+        const xhr = new XMLHttpRequest(); xhr.timeout = 15000;
+        xhr.open('GET', '/aweme/v1/web/aweme/post/?' + params.toString());
+        xhr.onload = () => {let data=null; try {data=JSON.parse(xhr.responseText)} catch (_) {}
+            resolve({http_status:xhr.status, data, response_bytes:xhr.responseText.length});};
+        xhr.onerror = () => resolve({http_status:0, error:'network_error'});
+        xhr.ontimeout = () => resolve({http_status:0, error:'request_timeout'});
+        xhr.send();
+    })''', {'id': user_id, 'cursor': cursor, 'template': template})
+
+
+def _profile_hydration(page, user_id):
+    """Read only this author's public post records from page-provided hydration."""
+    return page.evaluate('''wanted => {
+        const pending = [window._ROUTER_DATA, window.__NEXT_DATA__, window.SIGI_STATE];
+        for (const id of ['RENDER_DATA','SIGI_STATE','__UNIVERSAL_DATA_FOR_REHYDRATION__']) {
+            const script=document.getElementById(id); if (!script) continue;
+            try { pending.push(JSON.parse(decodeURIComponent(script.textContent))) } catch (_) {}
+        }
+        const seen = new Set(), posts = new Map(); let count=0;
+        while (pending.length && count++ < 100000) {
+            const value=pending.pop(); if (!value || typeof value!=='object' || seen.has(value)) continue;
+            seen.add(value);
+            if (value.aweme_id && value.author && value.author.sec_uid===wanted)
+                posts.set(String(value.aweme_id), value);
+            for (const child of Object.values(value)) if (child && typeof child==='object') pending.push(child);
+        }
+        return Array.from(posts.values());
+    }''', user_id)
 
 
 def _hydrate(page) -> list[dict]:
@@ -202,19 +311,22 @@ def _yt_dlp_video(url: str, cookies: list[dict] | None = None) -> dict:
 
 
 def videos(urls: list[str], profile: Path | None) -> tuple[list[dict], list[dict]]:
-    from playwright.sync_api import sync_playwright
     results, failures = [], []
-    with sync_playwright() as playwright:
+    with _driver() as playwright:
         with _session(playwright, profile) as context:
             for url in urls:
                 match = re.search(r"/(?:share/)?video/(\d+)", urlsplit(url).path)
                 wanted = "douyin-" + match.group(1) if match else ""
                 found = {}
+                initialized = False
                 page = context.new_page()
 
                 def capture(response):
+                    nonlocal initialized
                     if "/aweme/" not in response.url or response.status != 200:
                         return
+                    if 'uifid' in parse_qs(urlsplit(response.url).query):
+                        initialized = True
                     try:
                         for item in video_records(response.json()):
                             normalized = normalize(item)
@@ -224,13 +336,14 @@ def videos(urls: list[str], profile: Path | None) -> tuple[list[dict], list[dict
                         # Responses include non-JSON endpoints; they are not evidence of failure/success.
                         return
 
-                page.on("response", capture)
+                page.on("requestfinished", lambda req: capture(req.response()))
                 http_status = None
+                detail_status = None
                 try:
-                    navigation = page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    navigation = page.goto(url, wait_until="commit", timeout=20000)
                     http_status = navigation.status if navigation is not None else None
-                    for _ in range(20):
-                        if wanted in found:
+                    for _ in range(50):
+                        if wanted in found or initialized:
                             break
                         page.wait_for_timeout(500)
                     for item in _hydrate(page):
@@ -238,6 +351,15 @@ def videos(urls: list[str], profile: Path | None) -> tuple[list[dict], list[dict
                         if record:
                             found[record["id"]] = record
                     record = found.get(wanted)
+                    if not record:
+                        detail = _browser_detail(page, wanted.removeprefix('douyin-'))
+                        if isinstance(detail, dict):
+                            detail_status = detail.get('http_status')
+                            for item in video_records(detail.get('data')):
+                                normalized = normalize(item)
+                                if normalized and normalized['id'] == wanted:
+                                    record = normalized
+                                    break
                     if not record:
                         record = _yt_dlp_video(url, context.cookies(["https://www.douyin.com/"]))
                     if record["id"] != wanted:
@@ -247,9 +369,9 @@ def videos(urls: list[str], profile: Path | None) -> tuple[list[dict], list[dict
                     reason = _visible_blocker(page)
                     if not reason:
                         reason = "navigation_timeout" if "Timeout" in type(exc).__name__ else (
-                            "http_error" if http_status is not None and http_status >= 400 else "metadata_unavailable")
+                            "http_error" if (detail_status or http_status or 0) >= 400 else "metadata_unavailable")
                     failures.append(acquisition.clean_failure({"input_url": url, "stage": "metadata",
-                        "reason": reason, "message": str(exc), "http_status": http_status,
+                        "reason": reason, "message": str(exc), "http_status": detail_status or http_status,
                         "navigation_error_type": type(exc).__name__}))
                 finally:
                     page.close()
@@ -303,6 +425,115 @@ def profile_videos(url: str, profile: Path, report: Path, *, max_scrolls=240) ->
                 "video_count": len(feed.items), "non_video_count": len(feed.unsupported),
                 "unresolved_count": len(feed.unresolved), "coverage": "visible_to_current_session"})
     return feed.finish()
+
+
+def scan_profile(url: str, profile: Path | None, on_page, *, max_scrolls=600, max_seconds=600) -> dict:
+    """Stream public post pages to durable storage; an unfinished scan retains its data.
+
+    This is separate from the legacy all-or-error transcription discovery contract.
+    No media, credentials or speech requests are processed here.
+    """
+    import time
+    from playwright.sync_api import sync_playwright
+    from urllib.parse import parse_qs
+    state = {'complete': False, 'pages': 0, 'post_count': 0, 'reason': None,
+             'coverage': 'visible_to_current_session'}
+    seen, page_keys = set(), set()
+    request_template = None
+    user_id = urlsplit(url).path.rstrip('/').split('/')[-1]
+    started = time.monotonic()
+    try:
+        with sync_playwright() as playwright:
+            with _session(playwright, profile) as context:
+                page = context.new_page()
+
+                def capture(response):
+                    nonlocal request_template
+                    if '/aweme/post/' not in response.url or response.status != 200:
+                        return
+                    queried = parse_qs(urlsplit(response.url).query).get('sec_user_id', [None])[0]
+                    if queried and queried != user_id:
+                        return
+                    request_template = response.url
+                    try:
+                        payload = response.json()
+                    except Exception:
+                        return
+                    if not isinstance(payload, dict) or payload.get('status_code', 0) != 0:
+                        return
+                    posts = payload.get('aweme_list')
+                    if not isinstance(posts, list):
+                        return
+                    from .catalog import fingerprint
+                    page_key = fingerprint({'ids': [p.get('aweme_id') for p in posts if isinstance(p, dict)],
+                        'cursor': payload.get('max_cursor', payload.get('cursor')), 'has_more': payload.get('has_more')})
+                    if page_key in page_keys:
+                        return
+                    page_keys.add(page_key)
+                    for post in posts:
+                        if isinstance(post, dict) and post.get('aweme_id'):
+                            seen.add(str(post['aweme_id']))
+                    state.update(pages=state['pages'] + 1, post_count=len(seen),
+                                 cursor=payload.get('max_cursor', payload.get('cursor')))
+                    if seen and 'has_more' in payload and payload['has_more'] in (0, False):
+                        state['complete'] = True
+                    # Only public business records and pagination fields are retained.
+                    on_page({'aweme_list': posts, 'has_more': payload.get('has_more'),
+                             'cursor': state.get('cursor'), 'status_code': payload.get('status_code', 0)}, dict(state))
+
+                page.on('response', capture)
+                page.goto(url, wait_until='domcontentloaded', timeout=60000)
+                idle, previous, api_failures = 0, -1, 0
+                for _ in range(max_scrolls):
+                    page.wait_for_timeout(600)
+                    if state['complete']:
+                        break
+                    current = len(seen)
+                    idle = idle + 1 if current == previous else 0
+                    previous = current
+                    if idle == 8 and api_failures < 2:
+                        hydrated = _profile_hydration(page, user_id)
+                        if hydrated:
+                            for post in hydrated:
+                                seen.add(str(post['aweme_id']))
+                            state.update(post_count=len(seen), hydration_count=len(hydrated))
+                            on_page({'aweme_list': hydrated, 'has_more': None, 'cursor': None,
+                                     'source': 'public_page_hydration'}, dict(state))
+                        response = _browser_profile_page(page, user_id, state.get('cursor', 0), request_template)
+                        data = response.get('data') or {}
+                        facts = {k: v for k, v in response.items() if k != 'data'}
+                        facts.update(payload_keys=list(data) if isinstance(data, dict) else [],
+                                     status_code=data.get('status_code'), status_msg=data.get('status_msg'),
+                                     has_more=data.get('has_more'), aweme_list_type=type(data.get('aweme_list')).__name__)
+                        state.setdefault('visitor_requests', []).append(facts)
+                        if not isinstance(data.get('aweme_list'), list) or not data.get('aweme_list'):
+                            api_failures += 1
+                    if idle >= 25 or time.monotonic() - started >= max_seconds:
+                        state['reason'] = _visible_blocker(page) or ('discovery_timeout' if time.monotonic() - started >= max_seconds else 'pagination_stalled')
+                        break
+                    page.mouse.move(1100, 750)
+                    page.mouse.wheel(0, 1800)
+                    if idle > 2:
+                        page.evaluate('''() => {
+                            const candidates=Array.from(document.querySelectorAll('*')).filter(e => {
+                                const r=e.getBoundingClientRect(), s=getComputedStyle(e);
+                                return r.width>400 && r.height>250 && r.bottom>0 && r.top<innerHeight &&
+                                    /(auto|scroll)/.test(s.overflowY) && e.scrollHeight>e.clientHeight+100;
+                            });
+                            candidates.sort((a,b)=>b.clientWidth*b.clientHeight-a.clientWidth*a.clientHeight);
+                            const container=candidates[0] || document.scrollingElement;
+                            if(container) container.scrollTop=Math.min(container.scrollHeight, container.scrollTop+container.clientHeight);
+                        }''')
+                if not state['complete'] and not state['reason']:
+                    state['reason'] = _visible_blocker(page) or 'pagination_limit'
+                state['page_title'] = page.title()
+                state['final_path'] = urlsplit(page.url).path
+    except Exception as exc:
+        state['complete'] = False
+        state['reason'] = getattr(exc, 'code', 'discovery_error')
+        state['error'] = str(exc)
+    state['elapsed_seconds'] = round(time.monotonic() - started, 3)
+    return state
 
 
 def login(profile: Path) -> int:

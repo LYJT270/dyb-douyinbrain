@@ -5,12 +5,68 @@ import subprocess
 from unittest.mock import patch
 
 import support  # noqa: F401
-from douyin_text import asr, review, workflow
+from douyin_text import asr, media, review, workflow
 from douyin_text.common import digest, read_json
 from support import WorkspaceCase
 
 
 class ReviewTests(WorkspaceCase):
+    def test_overlapping_ranges_reuse_verified_individual_frames(self):
+        self.video_task()
+        initial = review.frames(self.video, {}, self.root / 'initial', self.root,
+                                start=0.25, end=1.5, every_frame=True, maximum=20)
+        with patch.object(review, 'command', side_effect=AssertionError('unnecessary decoding')):
+            subset = review.frames(self.video, {}, self.root / 'subset', self.root,
+                                   start=0.5, end=1, every_frame=True, maximum=20)
+        self.assertEqual(3, subset['reused_frame_count'])
+        self.assertEqual(initial['frames'][1:4], subset['frames'])
+
+    def test_interval_seek_matches_full_decode_for_cfr_vfr_offsets_and_boundaries(self):
+        self.video_task()
+        vfr = self.parent / 'vfr.mkv'
+        subprocess.run([shutil.which('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-nostdin',
+                        '-f', 'lavfi', '-i', 'testsrc2=size=160x120:rate=12:duration=3',
+                        '-vf', "select='not(mod(n,5))+not(mod(n,7))'", '-fps_mode', 'vfr',
+                        '-c:v', 'libx264', '-g', '4', str(vfr)], check=True, capture_output=True)
+        shifted = self.parent / 'offset.mp4'
+        subprocess.run([shutil.which('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-nostdin',
+                        '-i', str(self.video), '-map', '0', '-c', 'copy', '-output_ts_offset', '4', str(shifted)],
+                       check=True, capture_output=True)
+        for case, (source, start, end) in enumerate(((self.video, 0, 0.5), (self.video, 0.5, 1),
+                                                    (self.video, 1.75, 2), (vfr, 0.7, 2.5), (shifted, 0.5, 1.6))):
+            with self.subTest(source=source.name, start=start):
+                target = self.root / f'compare-{case}'
+                target.mkdir()
+                output = review.frames(source, {}, target / 'candidate', self.root,
+                                       start=start, end=end, every_frame=True, maximum=50)
+                expression = '+'.join(f"eq(n,{item['frame_index']})" for item in output['frames'])
+                subprocess.run([shutil.which('ffmpeg'), '-nostdin', '-hide_banner', '-loglevel', 'error',
+                    '-i', str(source), '-map', '0:v:0', '-vf', "select='" + expression + "'",
+                    '-fps_mode', 'vfr', '-q:v', '3', '-start_number', '0', str(target / 'original-%06d.jpg')],
+                    check=True, capture_output=True)
+                old = sorted(target.glob('original-*.jpg'))
+                self.assertEqual(len(old), len(output['frames']))
+                self.assertEqual([digest(file) for file in old], [item['sha256'] for item in output['frames']])
+
+    def test_cache_only_request_never_reacquires_missing_video(self):
+        with patch.object(media, 'acquire_batch', side_effect=AssertionError('must stay offline')):
+            with self.assertRaisesRegex(ValueError, '未联网'):
+                review.source_file({'id': 'douyin-123', 'source': 'https://www.douyin.com/video/123'},
+                                   self.root, cached_only=True)
+
+    def test_same_evidence_is_reused_and_range_change_generates_new_frames(self):
+        task = self.video_task()
+        first = review.prepare(task['id'], self.root, images=True, start=0.5, end=1, every_frame=True)
+        files = first['items'][0]['visual']['frames']
+        with patch.object(review, 'frames', side_effect=AssertionError('repeat extraction')):
+            repeated = review.prepare(task['id'], self.root, images=True, audio=True, start=0.5, end=1, every_frame=True)
+        self.assertEqual(files, repeated['items'][0]['visual']['frames'])
+        self.assertTrue(repeated['items'][0]['visual']['reused'])
+        self.assertFalse(repeated['items'][0]['visual']['reviewed'])
+        other = review.prepare(task['id'], self.root, images=True, start=0, end=0.5, every_frame=True)
+        self.assertFalse(other['items'][0]['visual']['reused'])
+        self.assertNotEqual(files, other['items'][0]['visual']['frames'])
+
     def video_task(self):
         self.video = self.parent / "测试原视频.mp4"
         subprocess.run([shutil.which("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin",

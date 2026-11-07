@@ -68,7 +68,7 @@ if (Test-Path -LiteralPath $configPath) {
     $configuredVault = (Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json).vault_root
 }
 if (-not $Vault -and -not $configuredVault) {
-    if ($NonInteractive) {
+    if ($NonInteractive -and $CreateVault) {
         $baseVault = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'dyb-douyinbrain-知识库'
         $Vault = $baseVault
         $suffix = 2
@@ -84,7 +84,7 @@ if (-not $Vault -and -not $configuredVault) {
         }
         $CreateVault = -not $knownLibrary
         Write-Output ('自动配置知识库：' + $Vault)
-    } else {
+    } elseif (-not $NonInteractive) {
         Write-Output '首次知识库配置：1 指定已有知识库；2 新建轻量 Markdown 知识库；3 稍后配置。'
         $vaultChoice = Read-Host '请选择 1、2 或 3'
         if ($vaultChoice -in @('1', '2')) {
@@ -141,7 +141,7 @@ if ($SkipBrowserInstall) { Write-Output '已跳过浏览器安装；抖音链接
 Write-Output '依赖配置完成。语音 Key 请在本机配置；有凭据不代表真实识别已验证。'
 Write-Output ('豆包手把手教程：' + (Join-Path $skillRoot '豆包配置教程.html'))
 if ($NonInteractive) {
-    Write-Output '环境准备完成。自动安装器将继续验证本地入口，并在缺少语音凭据时打开配置窗口；用户无需手动执行命令。'
+    Write-Output '环境准备完成。安装器将继续验证本地入口；语音凭据和知识库按任务需要配置，用户无需手动执行命令。'
 } else {
     Write-Output '下一步：按教程开通语音极速版并取得 API Key，再双击“配置豆包.cmd”保存；首次实际任务通过随包程序调用豆包 API。'
 }
