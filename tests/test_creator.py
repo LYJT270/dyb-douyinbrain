@@ -257,6 +257,28 @@ class CreatorTests(WorkspaceCase):
                 if not missing:
                     self.assertEqual(b'user modification', target.read_bytes())
 
+    def test_limited_download_advances_and_recovers_only_invalid_deliveries(self):
+        task = self.make(mode='download')
+        self.feed(task, [post('100'), post('200', timestamp=1700000100)])
+        fetched = []
+        def fetch(value, *args):
+            fetched.append(value['id'])
+            return self.material(value, *args)
+        creator.run(task, root=self.root, limit_items=1, fetcher=fetch)
+        completed = creator.run(task, root=self.root, limit_items=1, fetcher=fetch)
+        self.assertEqual(['douyin-100', 'douyin-200'], fetched)
+        self.assertTrue(completed['complete'])
+        target = self.root / creator.load(task, self.root)['items']['douyin-100']['download_file']
+        target.unlink()
+        self.assertTrue(creator.run(task, root=self.root, limit_items=1, fetcher=fetch)['complete'])
+        self.assertEqual(['douyin-100', 'douyin-200', 'douyin-100'], fetched)
+        target.write_bytes(b'preserve user changes')
+        self.assertTrue(creator.run(task, root=self.root, limit_items=1, fetcher=fetch)['complete'])
+        replacement = self.root / creator.load(task, self.root)['items']['douyin-100']['download_file']
+        self.assertNotEqual(target, replacement)
+        self.assertEqual(b'preserve user changes', target.read_bytes())
+        self.assertEqual(['douyin-100', 'douyin-200', 'douyin-100', 'douyin-100'], fetched)
+
     def test_download_and_recognition_overlap_with_bounded_parallelism(self):
         task = self.make()
         self.feed(task, [post('100'), post('200'), post('300')])

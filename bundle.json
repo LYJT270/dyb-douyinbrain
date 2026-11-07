@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": "https://github.com/ScarfaceAI/dyb-douyinbrain",
   "file_sha256": {
-    "CHANGELOG.md": "77f5dcde58da5358ec77372ea06e1d4346d289d63a1d326acb0e968903bbf453",
+    "CHANGELOG.md": "748fb91d37e7b000be9dde4a911d76f69e045e3d1456f1a90e82b6b1ebfa90cc",
     "CONTRIBUTING.md": "d289c8cec14c3dd683892fdb0a3e6efb1b9b8e51e69deb1bf5079634530c8e87",
     "INSTALL.md": "63bb937d6591dd2ade23e31666847a648cf8a31746abf51e385afb45e31648dc",
     "LICENSE": "6074a7521b2cb33244ddbb6682b7bacce7440242b91c4686ca4b4e93a3196a92",
@@ -81,7 +81,7 @@
     "scripts/runtime/douyin_text/cli.py": "e406c6f0da6b4301c50269e7a52ddb55391286e134f0c6540d3de80abc50d995",
     "scripts/runtime/douyin_text/common.py": "07650db5b3e8a1e3328c1781d271db5e5ca69d8fec1d71da1bd8e49ccf168bca",
     "scripts/runtime/douyin_text/content.py": "1a1f61c2d0dd5144f628cc43007b662b77f3a91725844a86e5642cb22aede866",
-    "scripts/runtime/douyin_text/creator.py": "5b418abe600121d7fcccfd9ea9035bb3db3aa986791c303c7e4e6454bed28d39",
+    "scripts/runtime/douyin_text/creator.py": "0a282551e2d50680870f481b485052d342071efb880a397b146400fcaabcc7c0",
     "scripts/runtime/douyin_text/creator_cli.py": "fb95bbcdb98b242f4e335215d1449817c45c015a3c228f3cf9ecbcb3e89db23a",
     "scripts/runtime/douyin_text/creator_files.py": "6f50b17586dd0e8ac1c13298188d41955bc743afa7c45ca93196f76239627b4e",
     "scripts/runtime/douyin_text/creator_review.py": "6366714e5e673eac0533ac7a09c8cfcccff64b1556364ca030f5cd96c7191603",

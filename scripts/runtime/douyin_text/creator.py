@@ -440,6 +440,18 @@ def run(task_id, *, download_workers=2, asr_workers=1, item_timeout=300, retry_e
                 else:
                     remaining.append(post)
             selected = remaining
+        else:
+            remaining = []
+            for post in selected:
+                cached_item = state['items'].get(post['id'], {})
+                if (cached_item.get('download_file') and
+                        cached_item.get('content_fingerprint') == post['content_fingerprint'] and
+                        cached_item.get('media', {}).get('quality') == task['quality'] and
+                        not cached_item.get('media_error') and not download_error(cached_item, post, root)):
+                    task['items'][post['id']] = copy.deepcopy(cached_item)
+                else:
+                    remaining.append(post)
+            selected = remaining
         if limit_items is not None:
             selected = selected[:limit_items]
         pending = iter(selected)
