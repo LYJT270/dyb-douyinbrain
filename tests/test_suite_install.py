@@ -100,7 +100,7 @@ class SuiteInstallTests(unittest.TestCase):
         preserved = self.snapshot()
         config = (self.workspace / 'config.json').read_bytes()
         receipt = self.install(self.source('1.3.2', broken_setup=True), expected=1)
-        self.assertEqual('rolled_back', receipt['suite_rollback']['status'])
+        self.assertEqual('rolled_back', receipt['suite_rollback']['status'], json.dumps(receipt, ensure_ascii=False))
         self.assertEqual(preserved, self.snapshot())
         self.assertEqual(config, (self.workspace / 'config.json').read_bytes())
         self.assertEqual(6, len([x for x in receipt['suite_rollback']['entries'] if Path(x['failed_backup']).is_dir()]))
@@ -120,7 +120,7 @@ class SuiteInstallTests(unittest.TestCase):
             receipt = self.install(candidate, expected=1)
         finally:
             kernel.CloseHandle(handle)
-        self.assertEqual('rolled_back', receipt['suite_rollback']['status'])
+        self.assertEqual('rolled_back', receipt['suite_rollback']['status'], json.dumps(receipt, ensure_ascii=False))
         self.assertEqual(preserved, self.snapshot())
         # The same version can be retried after the actual file lock is released.
         self.install(candidate)
