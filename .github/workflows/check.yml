@@ -35,6 +35,8 @@ jobs:
           }
       - name: Validate source and checked-in manifest
         run: python -B scripts/check_release.py
+      - name: Install pinned Python dependencies for behavioral tests
+        run: python -m pip install -r scripts/runtime/requirements.lock.txt
       - name: Offline behavioral tests (no speech API)
         run: python -B -X utf8 -m unittest discover -s tests
       - name: Install into a fresh isolated workspace and deliver existing text

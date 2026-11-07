@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from . import asr, credentials, media, vault, workflow, content, setup, review
+from . import creator_cli, onboarding, work
 from .common import ROOT, RESOURCE_ROOT, SKILL_ROOT, config
 
 
@@ -35,19 +36,26 @@ def doctor() -> dict:
                                 "acquisition_headless": True, "computer_use_required": False,
                                 "review_capabilities": "reported_from_current_agent_tools_not_agent_name",
                                 "web_transcription_fallback": False},
+            "onboarding": onboarding.status(ROOT),
             "next": "凭据与登录需要时在本机配置；真实识别状态须看任务回执"}
 
 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description="dyb-douyinbrain：需求路由、原文留底、校对与口播、知识归档")
     sub = root.add_subparsers(dest="command", required=True)
+    creator_cli.add_parser(sub)
+    work.add_parser(sub)
     sub.add_parser("doctor")
+    welcome = sub.add_parser('welcome', help='显示功能与首次使用引导，不调用语音识别')
+    welcome.add_argument('--lang', choices=('zh', 'en'), default='zh')
+    welcome.add_argument('--acknowledge', action='store_true', help='仅在 Agent 已在聊天展示介绍后记录；不代表用户已理解')
     configure = sub.add_parser("configure", help="在本机安全填写豆包语音凭据")
     configure.add_argument("--legacy", action="store_true", help="旧控制台 APP ID + Access Token")
     sub.add_parser("login", help="打开项目专用抖音登录浏览器")
     inspect = sub.add_parser("inspect-source", help="只检查单条视频链接或本地素材获取，不调用语音识别")
     inspect.add_argument("inputs", nargs="+")
     inspect.add_argument("--anonymous-only", action="store_true", help="不使用已保存的账号或浏览器状态")
+    inspect.add_argument('--download-audio', action='store_true', help='下载素材并验证新音轨；仍不调用语音识别')
     evidence = sub.add_parser("prepare-review", help="按当前 Agent 的实际能力准备画面／音轨，准备不等于已校对")
     evidence.add_argument("task")
     evidence.add_argument("--images", action="store_true", help="当前 Agent 有可用的图片查看及理解工具")
@@ -57,6 +65,7 @@ def parser() -> argparse.ArgumentParser:
     evidence.add_argument("--end", type=float, help="原视频结束时间，单位秒；帧图包含恰好位于结束点的帧")
     evidence.add_argument("--every-frame", action="store_true", help="提取指定范围全部视频帧，仍须 Agent 实际逐帧查看")
     evidence.add_argument("--max-frames", type=int, default=120)
+    evidence.add_argument('--cached-only', action='store_true', help='只使用已有音画缓存；缺失时报告，不联网补取')
     plan = sub.add_parser("plan", help="创建待确认任务，不下载、不调用识别")
     plan.add_argument("inputs", nargs="+")
     confirm = sub.add_parser("confirm", help="记录用户本次明确选择")
@@ -74,6 +83,7 @@ def parser() -> argparse.ArgumentParser:
     run = sub.add_parser("run")
     run.add_argument("task")
     run.add_argument("--retry-evidence", default="", help="用户明确重试失败/未知请求的原话")
+    run.add_argument('--anonymous-only', action='store_true', help='获取素材时不使用已保存的账号或浏览器状态')
     for name in ("show", "preview", "export-srt"):
         sub.add_parser(name).add_argument("task")
     finish = sub.add_parser("finish-analysis")
@@ -116,19 +126,27 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        if args.command == "doctor":
+        if args.command == 'work':
+            result = work.dispatch(args)
+        elif args.command == 'creator':
+            result = creator_cli.dispatch(args)
+        elif args.command == "doctor":
             result = doctor()
+        elif args.command == 'welcome':
+            result = onboarding.acknowledge(language=args.lang) if args.acknowledge else onboarding.welcome(doctor(), language=args.lang)
         elif args.command == "configure":
+            if onboarding.status(ROOT)['due']:
+                print(onboarding.welcome(doctor())['message'])
             credentials.configure(legacy=args.legacy)
             return 0
         elif args.command == "login":
             return media.douyin_browser.login(ROOT / ".local" / "douyin-profile")
         elif args.command == "inspect-source":
-            result = review.inspect_source(args.inputs, anonymous_only=args.anonymous_only)
+            result = review.inspect_source(args.inputs, anonymous_only=args.anonymous_only, download_audio=args.download_audio)
         elif args.command == "prepare-review":
             result = review.prepare(args.task, images=args.images, audio=args.audio, item_number=args.item,
                                     start=args.start, end=args.end, every_frame=args.every_frame,
-                                    max_frames=args.max_frames)
+                                    max_frames=args.max_frames, cached_only=args.cached_only)
         elif args.command == "init":
             result = setup.initialize(vault=args.vault, create_vault=args.create_vault,
                                       assistant=args.assistant, register=args.register)
@@ -154,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
                                       instruction=args.instruction, category=args.category,
                                       retranscribe=args.retranscribe)
         elif args.command == "run":
-            result = workflow.run(args.task, retry_evidence=args.retry_evidence)
+            result = workflow.run(args.task, retry_evidence=args.retry_evidence, anonymous_only=args.anonymous_only)
         elif args.command == "show":
             result = workflow.load(args.task)
         elif args.command == "preview":

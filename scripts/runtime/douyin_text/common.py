@@ -5,6 +5,8 @@ import json
 import os
 import re
 import tempfile
+import contextlib
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -12,6 +14,35 @@ RESOURCE_ROOT = Path(__file__).resolve().parents[1]
 SKILL_ROOT = RESOURCE_ROOT.parents[1]
 ROOT = Path(os.environ.get("DYB_WORKSPACE", str(Path.home() / "Documents" / "dyb-douyinbrain"))).expanduser().resolve()
 SHANGHAI = timezone(timedelta(hours=8))
+
+
+class ArtifactBusyError(RuntimeError):
+    """Another operation owns this artifact; distinct from unavailable media."""
+
+
+@contextlib.contextmanager
+def artifact_lock(folder: Path, *, wait_timeout: float = 0):
+    import msvcrt
+    folder.mkdir(parents=True, exist_ok=True)
+    with (folder / 'work.lock').open('a+b') as handle:
+        if handle.tell() == 0:
+            handle.write(b'0')
+            handle.flush()
+        handle.seek(0)
+        deadline = time.monotonic() + wait_timeout
+        while True:
+            try:
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise ArtifactBusyError('另一个任务正在处理同一媒体，请等待其完成，避免重复调用') from None
+                time.sleep(min(0.05, max(0, deadline - time.monotonic())))
+        try:
+            yield
+        finally:
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def now() -> str:

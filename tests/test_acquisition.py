@@ -107,6 +107,7 @@ class AcquisitionTests(WorkspaceCase):
     def test_browser_failure_reports_evidence_without_opening_login(self):
         page, context, manager = MagicMock(), MagicMock(), MagicMock()
         context.new_page.return_value = page
+        page.locator.return_value.all.return_value = [page.locator.return_value]
         manager.__enter__.return_value = context
         page.goto.return_value.status = 200
         fake_module = SimpleNamespace(sync_playwright=MagicMock())
@@ -142,6 +143,8 @@ class AcquisitionTests(WorkspaceCase):
         failure = {"input_url": URL, "reason": "metadata_unavailable"}
         with patch.object(acquisition, "public_metadata", return_value=([], [failure])), \
                 patch.object(browser, "videos", return_value=([], [failure])), \
+                patch.object(media, 'acquire_batch', side_effect=lambda values, scope, folder, root, **kw:
+                             media.discover(values, scope, folder, root, keep_going=True)), \
                 patch.object(asr, "recognize", side_effect=AssertionError("no ASR on acquisition failure")):
             result = workflow.run(task["id"], self.root)
         self.assertEqual("failed", result["status"])
@@ -149,13 +152,15 @@ class AcquisitionTests(WorkspaceCase):
         self.assertTrue(self.path(result["failures"][0]["reports"][0]).is_file())
 
     def test_inspection_never_calls_asr_or_outputs_expiring_media_address(self):
-        with patch.object(media, "metadata", return_value=([browser.normalize(video())], [])), \
+        with patch.object(media, 'acquire_batch', return_value=media.Discovery([browser.normalize(video())])) as acquire, \
                 patch.object(asr, "recognize", side_effect=AssertionError("no ASR")):
             result = review.inspect_source([URL], self.root, anonymous_only=True)
         self.assertEqual("acquired", result["status"])
         self.assertFalse(result["cloud_asr_called"])
         self.assertNotIn("example.invalid", json.dumps(result))
         self.assertTrue((self.path(result["report_directory"]) / "jobs.json").is_file())
+        self.assertFalse(acquire.call_args.kwargs['audio'])
+        self.assertTrue(acquire.call_args.kwargs['anonymous_only'])
 
     def test_cli_exposes_review_capabilities_and_anonymous_inspection(self):
         args = cli.parser().parse_args(["prepare-review", "task", "--images", "--start", "0.5", "--end", "1", "--every-frame"])

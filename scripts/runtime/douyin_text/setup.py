@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .common import ROOT, RESOURCE_ROOT, SKILL_ROOT, config, now, write_json
 from .content import immutable
+from . import onboarding
 
 
 def settings_path() -> Path:
@@ -86,4 +87,4 @@ def initialize(root: Path = ROOT, *, vault: Path | None = None, create_vault: bo
                                     "workspace_entry": str(entry), "updated_at": now()})
     return {"status": "configured", "workspace": str(root), "vault_root": cfg.get("vault_root"),
             "vault_created": created, "registered": register, "workspace_entry": str(entry),
-            "credentials": "not_read_or_changed"}
+            "credentials": "not_read_or_changed", "onboarding": onboarding.status(root)}

@@ -1,0 +1,127 @@
+{
+  "revision": 2,
+  "intro": {
+    "zh": "抖音脑帮你把视频和文稿变成可阅读、可分析、可继续创作的材料。直接说需求即可，Agent 会选择流程；下面这些功能可以单独使用，也能组合。",
+    "en": "Douyin-brain turns videos and drafts into material you can read, analyze, and reuse. Tell your Agent what you need; it chooses the workflow. These capabilities work independently or together."
+  },
+  "capabilities": [
+    {
+      "id": "transcribe",
+      "zh": {
+        "title": "提取文字与校对",
+        "example": "把这条视频转成文字，检查专名",
+        "outcome": "抖音、本地音视频或批量素材的逐字稿、校对稿与疑点；新增语音识别需要豆包配置"
+      },
+      "en": {
+        "title": "Transcribe and proofread",
+        "example": "Transcribe this video and check names",
+        "outcome": "Raw and reviewed transcripts from Douyin, local media, or batches, with uncertainties; new speech recognition requires Doubao setup"
+      }
+    },
+    {
+      "id": "analyze",
+      "zh": {
+        "title": "分析内容与博主",
+        "example": "按时间分析这个博主的内容和选题",
+        "outcome": "有作品依据的逐条分析、阶段与账号总结；也能只分析已有文稿或标题文案，无需新增语音识别"
+      },
+      "en": {
+        "title": "Analyze content and creators",
+        "example": "Analyze this creator's content and topics over time",
+        "outcome": "Evidence-based item, period, and account analysis; existing text or captions-only analysis needs no new speech recognition"
+      }
+    },
+    {
+      "id": "download",
+      "zh": {
+        "title": "批量下载主页视频",
+        "example": "下载这个博主全部可获取的视频",
+        "outcome": "独立视频、发布文案与元数据，默认最高可用画质，可选省空间；不调用语音识别"
+      },
+      "en": {
+        "title": "Download profile videos",
+        "example": "Download all accessible videos from this creator",
+        "outcome": "Independent videos, captions, and metadata at the best available quality or a compact option; no speech calls"
+      }
+    },
+    {
+      "id": "rewrite",
+      "zh": {
+        "title": "改口播与压缩文稿",
+        "example": "把这份稿改成一分钟口播，保留核心观点",
+        "outcome": "可直接读的改稿，必要时附前后对照；已有文字无需语音 Key，原文另存"
+      },
+      "en": {
+        "title": "Rewrite and shorten scripts",
+        "example": "Turn this draft into a one-minute spoken script, keeping its main points",
+        "outcome": "A readable rewrite with comparisons when needed; existing text needs no speech key, and the original is retained"
+      }
+    },
+    {
+      "id": "export",
+      "zh": {
+        "title": "整理与导出",
+        "example": "把这批文稿按顺序整理成 TXT，再导出已有识别的字幕",
+        "outcome": "顺序编号的 TXT、Markdown 或基于已有识别时码的 SRT；已有 SRT 可交给 Agent 保留时码处理，纯文本不能凭空生成准确时码"
+      },
+      "en": {
+        "title": "Organize and export",
+        "example": "Combine these drafts into ordered TXT and export subtitles from existing recognition",
+        "outcome": "Ordered TXT, Markdown, or SRT from existing recognition timing; an Agent can edit existing SRT while preserving timing, but plain text cannot supply accurate timestamps"
+      }
+    },
+    {
+      "id": "knowledge",
+      "zh": {
+        "title": "归档与整理知识",
+        "example": "把这批资料存入知识库，并整理成主题笔记",
+        "outcome": "保留来源的原文与校对稿、按要求整理主题页；需要明确入库要求和目标位置"
+      },
+      "en": {
+        "title": "Archive and organize knowledge",
+        "example": "Archive these sources and synthesize topic notes",
+        "outcome": "Linked source and reviewed text, plus requested topic pages; requires an explicit archive request and destination"
+      }
+    },
+    {
+      "id": "resume",
+      "zh": {
+        "title": "续跑与重新分析",
+        "example": "接着上次做，只处理没完成的部分",
+        "outcome": "复用有效缓存、补未完成项；重新分析不会自动重新识别，付费失败重试需明确要求"
+      },
+      "en": {
+        "title": "Resume and reanalyze",
+        "example": "Continue the previous task and handle only unfinished items",
+        "outcome": "Reuse valid cached work; reanalysis does not automatically retranscribe, and failed paid calls require an explicit retry request"
+      }
+    },
+    {
+      "id": "setup",
+      "zh": {
+        "title": "配置、排障与更新",
+        "example": "帮我配置语音，或检查这个 Skill 有没有新版",
+        "outcome": "引导配置、检查环境、迁移目录、定位失败和更新；需要登录时由你本人完成"
+      },
+      "en": {
+        "title": "Setup, diagnostics, and updates",
+        "example": "Help me configure speech or check for a Skill update",
+        "outcome": "Guided setup, local checks, migration, troubleshooting, and updates; complete any needed login yourself"
+      }
+    }
+  ],
+  "notes": {
+    "zh": [
+      "第一次先准备运行环境；语音 Key、知识库和抖音登录按任务需要配置，已有配置直接复用。不要把 Key 发到聊天里。",
+      "语音识别可能收费；博主批量分析先展示本批新增用量并取得授权，普通转写按本次明确要求执行并说明计费环节。仅下载和已有文字处理不调用语音识别，Agent 平台自身成本另计。",
+      "先在聊天里看到正文或分析结论、依据和处理范围，再获取详细文件。只能处理当前可访问的作品，缺失项会明确列出。",
+      "整套安装包含总入口和 5 个业务入口，共用配置与任务材料；直接说需求即可，熟悉后也可以点名使用某个入口。"
+    ],
+    "en": [
+      "Prepare the local runtime first. Configure speech credentials, a knowledge destination, or Douyin login only when the task needs them. Reuse existing settings; never send keys in chat.",
+      "Speech recognition may incur charges. Preview and authorize new speech usage for a creator batch; ordinary transcription follows the explicit request with its paid step explained. Downloads and existing text make no speech calls; Agent platform costs are separate.",
+      "See readable text or analysis, evidence, and coverage in chat before opening detailed files. Only currently accessible posts can be processed; gaps are reported.",
+      "The suite includes one coordinator and five business entrypoints sharing configuration and task materials. Describe your goal, or name a specific entrypoint when you prefer."
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "product": "dyb-douyinbrain",
+  "members": [
+    {"name": "dyb-transcribe", "source": "skills/dyb-transcribe"},
+    {"name": "dyb-analyze", "source": "skills/dyb-analyze"},
+    {"name": "dyb-download", "source": "skills/dyb-download"},
+    {"name": "dyb-write", "source": "skills/dyb-write"},
+    {"name": "dyb-knowledge", "source": "skills/dyb-knowledge"}
+  ]
+}

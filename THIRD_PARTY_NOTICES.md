@@ -20,9 +20,9 @@ Exact Python package versions are pinned in `scripts/runtime/requirements.lock.t
 
 ## Source history / 来源历史
 
-An earlier private, local-only workflow used two files from `a550752845-hue/douyin-video-transcript` at commit `692b064b50fe78f1194c6a243632a6b09e49d658`. That snapshot did not provide an explicit license. **Neither file is included in this public repository or its installation package.** The independently implemented public acquisition adapter uses HTTP share pages and headless Playwright responses, with a separately installed yt-dlp fallback for single videos. No upstream authorization is implied.
+An earlier private, local-only workflow used two files from `a550752845-hue/douyin-video-transcript` at commit `692b064b50fe78f1194c6a243632a6b09e49d658`. That snapshot did not provide an explicit license. **Neither file is included in this public repository or its installation package.** The independently implemented adapter uses HTTP share pages and headless Playwright. The page loads its own visitor SDK at runtime, and the adapter sends an ordinary XHR from that page's context to retrieve post data; that SDK is not bundled by this project. The adapter contains no copy of a signature-generation algorithm, does not automatically solve CAPTCHA or use a third-party paid parsing service, and retains the separately installed yt-dlp fallback for individual videos. No upstream authorization is implied.
 
-早期本地工作流使用过上述仓库中的两份文件，该快照未提供明确许可。公开版不包含这两份文件；新的下载适配器独立实现，不声称已获得旧上游授权。
+早期本地工作流使用过上述仓库中的两份文件，该快照未提供明确许可。公开版不包含这两份文件；下载适配器独立实现。无头页面在运行时加载网站自身的访客 SDK，适配器在页面上下文中发起普通 XHR 请求获取作品数据；本项目不打包该 SDK，不复制签名生成算法，不自动处理验证码，也不使用第三方付费解析服务。单条视频仍保留单独安装的 yt-dlp 回退；不声称已获得旧上游授权。
 
 Doubao ASR is an external service governed by its provider's terms. Each user supplies their own account and API credentials. Douyin, DeepSeek, Codex, Claude, Gemini, Cursor and OpenCode names identify interoperability targets; this project is not an official product of those providers.
 

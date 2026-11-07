@@ -100,6 +100,11 @@ def verify_archive(archive_path: Path, *, expected_version: str | None = None,
         if expected_manifest is not None and manifest != expected_manifest:
             raise ValueError("Published manifest differs from the checked source")
         files = manifest["file_sha256"]
+        if manifest.get('skill_suite'):
+            from suite_manifest import validate_suite
+            validate_suite(manifest['skill_suite'], files)
+            if json.loads(archive.read(prefix + 'assets/skill-suite.json')) != manifest['skill_suite']:
+                raise ValueError('Suite catalog differs from the release manifest')
         if not {"SKILL.md", "VERSION", "scripts/install.ps1", "scripts/brain.py"} <= set(files):
             raise ValueError("Required installation files are missing")
         expected = {prefix + name for name in files} | {prefix + "bundle.json"}
