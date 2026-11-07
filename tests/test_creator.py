@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-from support import WorkspaceCase, read_json, write_json
+from support import Response, WorkspaceCase, read_json, write_json
 from douyin_text import asr, catalog, creator, creator_files, creator_review, credentials, workflow
 from douyin_text.common import digest, relative
 
@@ -174,6 +174,89 @@ class CreatorTests(WorkspaceCase):
         creator.run(task, root=self.root, fetcher=self.material, recognizer=lambda *a: self.fail('unknown request retried'))
         self.assertEqual('not-resubmit', read_json(ledger)['request_id'])
 
+    def audio_material(self, value, task, root, timeout):
+        result = self.material(value, task, root, timeout)
+        path = root / result['asset']['file']
+        path.write_bytes(self.wav.read_bytes())
+        result['asset'].update(sha256=digest(path), bytes=path.stat().st_size, duration=3.2)
+        return result
+
+    def test_pre_submission_failure_releases_budget_for_same_authorized_item(self):
+        task = self.make()
+        self.feed(task, [post(duration=3200)])
+        self.approve(task, max_audio_seconds=3.2)
+        with patch.object(credentials, 'load', side_effect=RuntimeError('credentials missing')), \
+                patch.object(asr, 'recognize', side_effect=AssertionError('must not submit')):
+            creator.run(task, root=self.root, fetcher=self.audio_material)
+        self.assertEqual(0, creator.load(task, self.root)['authorizations'][0]['reserved_audio_seconds'])
+        with patch.object(credentials, 'load', return_value={'api_key': 'fixture'}), \
+                patch.object(asr.request, 'urlopen', side_effect=lambda *a, **k: Response()):
+            result = creator.run(task, root=self.root, fetcher=self.audio_material)
+        self.assertEqual(1, result['counts']['speech_ready'])
+
+    def test_partial_submission_only_releases_provably_unsubmitted_audio(self):
+        task = self.make()
+        self.feed(task, [post(duration=3200)])
+        self.approve(task, max_audio_seconds=3.2)
+        with patch.object(credentials, 'load', side_effect=[{'api_key': 'fixture'}, RuntimeError('credentials missing')]), \
+                patch.object(asr.request, 'urlopen', side_effect=lambda *a, **k: Response()):
+            creator.run(task, root=self.root, fetcher=self.audio_material)
+        value = creator.records(creator.load(task, self.root), self.root)[0]
+        receipts = creator.prior_requests(value, self.root)
+        self.assertEqual(1, len(receipts))
+        self.assertEqual('succeeded', receipts[0]['status'])
+        self.assertLess(receipts[0]['audio_duration'], 3.2)
+        self.assertAlmostEqual(receipts[0]['audio_duration'], creator.load(task, self.root)['authorizations'][0]['reserved_audio_seconds'])
+        with patch.object(credentials, 'load', return_value={'api_key': 'fixture'}), \
+                patch.object(asr.request, 'urlopen', side_effect=lambda *a, **k: Response()) as submitted:
+            result = creator.run(task, root=self.root, fetcher=self.audio_material)
+        self.assertEqual(3, submitted.call_count)
+        self.assertEqual(1, result['counts']['speech_ready'])
+        self.assertAlmostEqual(3.2, creator.load(task, self.root)['authorizations'][0]['reserved_audio_seconds'])
+
+    def test_unknown_submission_keeps_reserved_budget_and_is_not_retried(self):
+        task = self.make()
+        self.feed(task, [post(duration=3200)])
+        self.approve(task, max_audio_seconds=3.2)
+        with patch.object(credentials, 'load', return_value={'api_key': 'fixture'}), \
+                patch.object(asr, 'recognize', side_effect=asr.OutcomeUnknown('connection lost')):
+            creator.run(task, root=self.root, fetcher=self.audio_material)
+        value = creator.records(creator.load(task, self.root), self.root)[0]
+        receipts = creator.prior_requests(value, self.root)
+        self.assertEqual(1, len(receipts))
+        self.assertEqual('outcome_unknown', receipts[0]['status'])
+        self.assertLess(receipts[0]['audio_duration'], 3.2)
+        self.assertAlmostEqual(receipts[0]['audio_duration'], creator.load(task, self.root)['authorizations'][0]['reserved_audio_seconds'])
+        with patch.object(asr, 'recognize', side_effect=AssertionError('unknown request retried')):
+            result = creator.run(task, root=self.root, fetcher=self.audio_material)
+        self.assertEqual(0, result['counts']['speech_ready'])
+        self.assertEqual(1, result['counts']['failed_items'])
+
+    def test_export_detects_missing_or_changed_delivered_video_without_overwriting(self):
+        task = self.make(mode='download')
+        self.feed(task, [post()])
+        result = creator.run(task, root=self.root, fetcher=self.material)
+        self.assertTrue(result['complete'])
+        target = self.root / creator.load(task, self.root)['items']['douyin-100']['download_file']
+        for missing in (False, True):
+            with self.subTest(missing=missing):
+                if missing:
+                    target.unlink()
+                else:
+                    target.write_bytes(b'user modification')
+                shown = creator.summary(creator.load(task, self.root), self.root)
+                exported = creator.export(task, root=self.root)
+                self.assertFalse(shown['complete'])
+                self.assertFalse(exported['complete'])
+                self.assertEqual(0, exported['counts']['downloaded'])
+                self.assertEqual(1, exported['counts']['failed_items'])
+                self.assertEqual('douyin-100', exported['delivery_gaps'][0]['id'])
+                csv_text = (self.root / exported['delivery_directory'] / '作品明细.csv').read_text(encoding='utf-8-sig')
+                self.assertIn(exported['delivery_gaps'][0]['error'], csv_text)
+                self.assertEqual(not missing, target.exists())
+                if not missing:
+                    self.assertEqual(b'user modification', target.read_bytes())
+
     def test_download_and_recognition_overlap_with_bounded_parallelism(self):
         task = self.make()
         self.feed(task, [post('100'), post('200'), post('300')])
@@ -307,6 +390,21 @@ class CreatorTests(WorkspaceCase):
             prepared = creator_review.prepare(task, root=self.root)
         self.assertEqual(['douyin-100'], prepared['preparation']['reused_analysis'])
         self.assertEqual(['douyin-200'], prepared['preparation']['waiting_materials_or_speech'])
+
+    def test_limited_run_advances_past_completed_analysis(self):
+        task, _ = self.ready_images()
+        claimed = creator_review.claim(task, 'tester', root=self.root)
+        creator_review.record(task, self.answer(task, claimed['packet']), 'tester', root=self.root)
+        self.feed(task, [post(images=True), post('200', timestamp=1700000100, images=True)])
+        fetched = []
+        def fetch(value, *args):
+            fetched.append(value['id'])
+            return self.material(value, *args)
+        creator.run(task, limit_items=1, root=self.root, fetcher=fetch)
+        self.assertEqual(['douyin-200'], fetched)
+        prepared = creator_review.prepare(task, root=self.root)
+        self.assertEqual(['douyin-100'], prepared['preparation']['reused_analysis'])
+        self.assertTrue(prepared['packets'])
 
     def test_reanalysis_uses_exact_recognized_source_after_high_quality_download(self):
         task = self.make()

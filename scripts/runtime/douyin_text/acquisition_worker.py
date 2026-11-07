@@ -7,7 +7,7 @@ import sys
 import time
 
 from . import acquisition, douyin_browser, media
-from .common import artifact_lock, config, read_json, write_json
+from .common import ArtifactBusyError, artifact_lock, config, read_json, write_json
 
 
 def acquire(data):
@@ -37,7 +37,7 @@ def acquire(data):
                     'download_seconds': round(download_seconds, 3), 'audio_seconds': round(time.monotonic() - phase, 3)}
             ready.append(job)
         except Exception as exc:
-            failures.append({**acquisition.clean_failure({'reason': 'media_unavailable', 'stage': 'audio',
+            failures.append({**acquisition.clean_failure({'reason': 'media_busy' if isinstance(exc, ArtifactBusyError) else 'media_unavailable', 'stage': 'audio',
                 'message': str(exc)}), 'id': job['id'], 'error': str(exc), 'number': job.get('number', 1)})
     return {'jobs': ready, 'failures': failures, 'cloud_asr_called': False}
 

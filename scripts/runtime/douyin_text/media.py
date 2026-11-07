@@ -206,6 +206,21 @@ def acquire_batch(values: list[str], scope: dict, run_dir: Path, root: Path, *,
             worker.close()
         write_json(batch / 'process-receipts.json', [r for worker in workers for r in worker.receipts])
     outcomes.sort(key=lambda item: item['input_number'])
+    # Distinct URLs may resolve to the same locked artifact. Only reconcile a
+    # contention when this batch actually produced verified audio for that ID.
+    ready_by_id = {job['id']: job for outcome in outcomes for job in outcome['jobs']
+                   if job.get('audio_verified')}
+    for outcome in outcomes:
+        failures = []
+        for failure in outcome['failures']:
+            ready = ready_by_id.get(failure.get('id'))
+            if failure.get('reason') == 'media_busy' and ready:
+                outcome['jobs'].append({**ready, 'input': values[outcome['input_number'] - 1],
+                                        'input_item': failure.get('number', 1)})
+                outcome.setdefault('resolved_contention', []).append(failure)
+            else:
+                failures.append(failure)
+        outcome['failures'] = failures
     result = Discovery()
     for outcome in outcomes:
         number = outcome['input_number']

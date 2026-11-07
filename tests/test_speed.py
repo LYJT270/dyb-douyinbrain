@@ -5,12 +5,51 @@ import threading
 from unittest.mock import patch
 
 from support import Response, WorkspaceCase
-from douyin_text import asr, credentials, media, workflow
-from douyin_text.common import read_json, write_json
+from douyin_text import acquisition_worker, asr, credentials, media, workflow
+from douyin_text.common import artifact_lock, read_json, write_json
 from douyin_text.processes import Worker
 
 
 class PipelineTests(WorkspaceCase):
+    def test_worker_reports_media_lock_contention_with_resolved_identity(self):
+        job = {'id': 'douyin-456', 'media': str(self.wav), 'number': 1}
+        with artifact_lock(self.root / '.cache/douyin-456/test'), \
+                patch.object(media, 'discover', return_value=media.Discovery([job])), \
+                patch.object(media, 'materialize', side_effect=AssertionError('locked source acquired')):
+            result = acquisition_worker.acquire({'root': str(self.root), 'folder': str(self.root / 'run'),
+                'value': 'https://v.douyin.com/alias/', 'audio': True, 'version': 'test'})
+        self.assertEqual('media_busy', result['failures'][0]['reason'])
+        self.assertEqual('douyin-456', result['failures'][0]['id'])
+
+    def test_duplicate_contention_reuses_ready_identity_in_original_input_order(self):
+        urls = ['https://v.douyin.com/alias/', 'https://www.douyin.com/video/456']
+        task = workflow.plan(urls, self.root)
+        workflow.confirm(task['id'], 'transcribe', '转写两条链接', root=self.root)
+        def acquire(worker, data, folder, timeout):
+            if data['value'] == urls[0]:
+                return {'jobs': [], 'failures': [{'id': 'douyin-456', 'reason': 'media_busy', 'stage': 'audio'}]}
+            return {'jobs': [{'id': 'douyin-456', 'source': urls[1], 'input': urls[1],
+                             'media': str(self.wav), 'author': 'fixture', 'title': 'same video',
+                             'published': None, 'audio_verified': True}], 'failures': []}
+        with patch.object(Worker, 'run', acquire), patch.object(credentials, 'load', return_value={'api_key': 'fixture'}), \
+                patch.object(asr.request, 'urlopen', side_effect=lambda *a, **k: Response()) as submitted:
+            result = workflow.run(task['id'], self.root)
+        self.assertEqual('awaiting_review', result['status'])
+        self.assertEqual([], result['failures'])
+        self.assertEqual(1, len(result['results']))
+        self.assertEqual(4, submitted.call_count, 'one set of four audio chunks, without duplicate requests')
+        job = read_json(workflow.task_path(task['id'], self.root).parent / 'jobs.json')[0]
+        self.assertEqual(1, job['input_number'])
+        self.assertEqual(urls[0], job['input'])
+
+    def test_unmatched_media_contention_remains_a_reported_gap(self):
+        with patch.object(Worker, 'run', return_value={'jobs': [], 'failures': [
+                {'id': 'douyin-456', 'reason': 'media_busy', 'stage': 'audio'}]}):
+            result = media.acquire_batch(['https://v.douyin.com/alias/'], {}, self.root / 'run',
+                                         self.root, version='test')
+        self.assertEqual([], result)
+        self.assertEqual('media_busy', result.failures[0]['reason'])
+
     def test_ready_audio_is_recognized_before_slow_acquisition_and_duplicate_is_not_paid_twice(self):
         write_json(self.root / 'config.json', {'chunk_seconds': 300, 'asr_timeout_seconds': 5})
         urls = ['https://www.douyin.com/video/' + n for n in ('123', '456', '789')]

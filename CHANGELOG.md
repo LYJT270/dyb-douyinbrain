@@ -10,6 +10,7 @@
 - 付费识别按批次预览和授权；核对包由宿主 Agent 实际读取全文与画面，逐条留底后按时间形成报告。
 - 本地候选拆分总入口和五个按单项需求路由的子 Skill，共用安装、配置、首次介绍和更新；安装时避免递归发现重复入口。组合任务使用 `work` 关联原生任务与实际产物。真实宿主发现及发布状态以实际验证为准。
 - 套件本地回归通过 147 项；本机 Codex 原生发现恰好 6 个启用入口，五个子入口可共用运行时，既有配置和任务保持不变。范围与限制见[套件验收记录](docs/verification/skill-suite.md)。
+- 上传准备阶段补齐 CI 依赖，修复文件占用时的整套回滚、限量分析续跑、同一作品不同链接的并发冲突、未提交识别的用量释放，以及交付视频缺失或变化后的完成状态；新增回归场景后，本地 155 项测试通过。
 
 The source candidate adds creator-profile analysis and independent video batch download. Verification of the current round's real account, visual review, and paid speech is reported from actual evidence; this feature has not been publicly released.
 
@@ -19,6 +20,7 @@ The source candidate adds creator-profile analysis and independent video batch d
 - Preview and authorize paid recognition in batches. The host Agent reads transcripts and images in review packets before recording per-item results and a chronological report.
 - The local candidate separates the main entry and five specialized child Skills while sharing installation, configuration, introduction, and updates; the installed layout avoids duplicate recursive discovery. Combined work can link native tasks and actual artifacts with `work`. Real host discovery and release status depend on verification.
 - The suite passed 147 local regression tests. Native discovery on the local Codex installation found exactly 6 enabled entries, the five child entrypoints shared the runtime, and existing configuration and tasks were unchanged. See the [suite verification record](docs/verification/skill-suite.md) for scope and limitations.
+- Upload preparation adds pinned CI dependencies and fixes whole-suite rollback with locked files, bounded analysis resumption, contention between URLs for the same post, reservations for unsubmitted speech, and completion reporting for missing or changed delivered videos. With the added regression cases, 155 local tests passed.
 
 ## 1.3.1 - 2026-11-06
 

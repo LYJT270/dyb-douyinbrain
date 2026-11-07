@@ -296,14 +296,37 @@ def _reserve(task, post, asset, root):
     duration = asset.get('duration')
     if duration is None:
         raise RuntimeError('下载后仍无法确定音频时长，尚未提交识别')
-    prior = sum(float(p.get('audio_duration', 0)) for p in prior_requests(post, root) if p.get('status') == 'succeeded')
+    receipts = prior_requests(post, root)
+    prior = sum(float(p.get('audio_duration', 0)) for p in receipts if p.get('status') == 'succeeded')
     amount = max(0, duration - prior)
     if consent.get('max_audio_seconds') is not None and consent['reserved_audio_seconds'] + amount > consent['max_audio_seconds']:
         raise RuntimeError('本批识别用量达到用户设定上限，尚未提交此作品')
     consent['reserved_audio_seconds'] += amount
-    consent['reservations'].append({'id': post['id'], 'seconds': amount, 'at': now()})
+    reservation = {'id': post['id'], 'seconds': amount, 'at': now(),
+                   'prior_request_ids': [p.get('request_id') for p in receipts]}
+    consent['reservations'].append(reservation)
     save(task, root)  # Reserve before submitting; an interrupted paid request is never resubmitted silently.
-    return True
+    return reservation
+
+
+def _reconcile_failed_reservation(task, post, reservation, root):
+    # transcribe persists each request before submitting. Once the future has
+    # stopped, unchanged receipts prove this attempt did not submit that audio.
+    try:
+        before = reservation['prior_request_ids']
+        receipts = prior_requests(post, root)
+        if any(not p.get('request_id') or p.get('audio_duration') is None for p in receipts) or None in before:
+            return
+        submitted = sum(float(p['audio_duration']) for p in receipts if p['request_id'] not in before)
+        if submitted < 0:
+            return
+    except (OSError, ValueError, KeyError, TypeError):
+        return  # Unreadable receipts cannot establish that a request was unsubmitted.
+    released = max(0, reservation['seconds'] - submitted)
+    consent = _consent(task, post)
+    consent['reserved_audio_seconds'] = max(0, consent['reserved_audio_seconds'] - released)
+    reservation.update(released_audio_seconds=released, submitted_audio_seconds=submitted,
+                       reconciled_at=now())
 
 
 def _recognize(post, material, root, retry_evidence):
@@ -406,7 +429,6 @@ def run(task_id, *, download_workers=2, asr_workers=1, item_timeout=300, retry_e
         if limit_items is not None:
             if limit_items < 1:
                 raise ValueError('单次处理数量应大于 0')
-            selected = selected[:limit_items]
         if task['mode'] == 'analyze':
             remaining = []
             for post in selected:
@@ -418,6 +440,8 @@ def run(task_id, *, download_workers=2, asr_workers=1, item_timeout=300, retry_e
                 else:
                     remaining.append(post)
             selected = remaining
+        if limit_items is not None:
+            selected = selected[:limit_items]
         pending = iter(selected)
         active_fetch, active_speech = {}, {}
         task['timing']['concurrency'] = {'download': download_workers, 'asr': asr_workers,
@@ -459,7 +483,7 @@ def run(task_id, *, download_workers=2, asr_workers=1, item_timeout=300, retry_e
                         permitted = False
                     if permitted:
                         future = speech_pool.submit(recognizer, post, material, root, retry_evidence)
-                        active_speech[future] = post
+                        active_speech[future] = (post, permitted)
                     else:
                         item['speech'] = {'status': 'awaiting_usage_confirmation'}
             state['items'][post['id']] = {**state['items'][post['id']], **item}
@@ -489,13 +513,14 @@ def run(task_id, *, download_workers=2, asr_workers=1, item_timeout=300, retry_e
                             task['items'].setdefault(post['id'], {})['media_error'] = str(exc)
                             persist()
                     else:
-                        post = active_speech.pop(future)
+                        post, reservation = active_speech.pop(future)
                         item = task['items'].setdefault(post['id'], {})
                         try:
                             item['speech'] = future.result()
                             item.pop('speech_error', None)
                         except Exception as exc:
                             item['speech_error'] = str(exc)
+                            _reconcile_failed_reservation(task, post, reservation, root)
                         state['items'][post['id']] = {**state['items'].get(post['id'], {}), **item}
                         persist()
         task['timing']['run_seconds'] = round(time.monotonic() - started, 3)
@@ -542,32 +567,51 @@ def report_record(task, root):
     return read_json(file) if file.is_file() and digest(file) == saved.get('sha256') else None
 
 
+def download_error(item, post, root):
+    if not item.get('download_file'):
+        return None
+    if item.get('media_fingerprint') != post['media_fingerprint']:
+        return '交付视频来源已变化，需要重新核对'
+    try:
+        file = inside(root, item['download_file'])
+        if not file.is_file():
+            return '交付视频文件缺失'
+        if digest(file) != item.get('media', {}).get('asset', {}).get('sha256'):
+            return '交付视频文件已变化，原文件保持不动'
+    except (OSError, ValueError):
+        return '交付视频文件无法读取或路径无效'
+    return None
+
+
 def summary(task, root=ROOT):
     posts = records(task, root)
     counts = {'discovered': len(posts), 'videos': sum(p['kind'] == 'video' for p in posts),
               'image_posts': sum(p['kind'] == 'images' for p in posts), 'downloaded': 0,
               'speech_ready': 0, 'visual_reviewed': 0, 'analyzed': 0, 'fully_analyzed': 0, 'failed_items': 0}
+    delivery_gaps = []
     for post in posts:
         item = task['items'].get(post['id'], {})
         media_valid = item.get('media_fingerprint') == post['media_fingerprint']
         analyzed = item.get('analysis', {})
         analysis_valid = analysis_record(item, post, task, root) is not None
-        counts['downloaded'] += media_valid and bool(item.get('media', {}).get('complete'))
+        delivery_error = download_error(item, post, root) if task['mode'] == 'download' else None
+        if delivery_error:
+            delivery_gaps.append({'id': post['id'], 'file': item['download_file'], 'error': delivery_error})
+        counts['downloaded'] += (media_valid and bool(item.get('download_file')) and not delivery_error
+                                if task['mode'] == 'download' else media_valid and bool(item.get('media', {}).get('complete')))
         counts['speech_ready'] += media_valid and item.get('speech', {}).get('status') in ('transcribed', 'reused', 'no_speech_detected', 'no_audio_stream', 'not_applicable')
         counts['visual_reviewed'] += analysis_valid and bool(analyzed.get('visual_complete'))
         counts['analyzed'] += analysis_valid and bool(analyzed.get('file'))
         counts['fully_analyzed'] += analysis_valid and bool(analyzed.get('complete'))
-        counts['failed_items'] += bool(item.get('media_error') or item.get('speech_error') or item.get('analysis_error') or item.get('media', {}).get('errors'))
+        counts['failed_items'] += bool(delivery_error or item.get('media_error') or item.get('speech_error') or item.get('analysis_error') or item.get('media', {}).get('errors'))
     required = counts['videos'] if task['mode'] == 'download' else len(posts)
-    finished = sum(bool(task['items'].get(p['id'], {}).get('download_file')) and
-                   task['items'].get(p['id'], {}).get('media_fingerprint') == p['media_fingerprint']
-                   for p in posts) if task['mode'] == 'download' else counts['fully_analyzed']
+    finished = counts['downloaded'] if task['mode'] == 'download' else counts['fully_analyzed']
     complete = bool(posts) and bool(task['discovery'].get('complete')) and required == finished and not counts['failed_items']
     if task['mode'] == 'analyze':
         complete = complete and counts['visual_reviewed'] == required and report_record(task, root) is not None
     return {'task': task['id'], 'mode': task['mode'], 'status': 'completed' if complete else task['status'],
             'complete': complete, 'discovery_complete': bool(task['discovery'].get('complete')),
-            'counts': counts, 'timing': task.get('timing', {}), 'workspace': str(root),
+            'counts': counts, 'delivery_gaps': delivery_gaps, 'timing': task.get('timing', {}), 'workspace': str(root),
             'task_file': relative(root, task_path(task['id'], root)),
             'delivery_directory': relative(root, account_dir(task, root) / 'reports' / task['id']),
             'capabilities': task['capabilities']}
@@ -589,6 +633,10 @@ def export(task_id, *, root=ROOT):
     for post in posts:
         item = task['items'].get(post['id'], {})
         checked = analysis_record(item, post, task, root)
+        errors = [str(item[k]) for k in ('media_error', 'speech_error', 'analysis_error') if item.get(k)]
+        delivery_error = download_error(item, post, root)
+        if delivery_error:
+            errors.append(delivery_error)
         row = {k: post.get(k) for k in fields if k in post}
         row.update({k: post.get('statistics', {}).get(k) for k in fields if k.endswith('_count')})
         row.update(download_file=item.get('download_file'), speech_status=item.get('speech', {}).get('status'),
@@ -597,7 +645,7 @@ def export(task_id, *, root=ROOT):
                    visual_reviewed=bool(checked and checked.get('visual_complete')),
                    analysis_complete=bool(checked and checked.get('complete')),
                    analysis_file=item.get('analysis', {}).get('file') if checked else None,
-                   error='; '.join(str(item[k]) for k in ('media_error', 'speech_error', 'analysis_error') if item.get(k)))
+                   error='; '.join(errors))
         row.update({k: checked['analysis'].get(k) if checked else None
                     for k in ('category', 'topic', 'angle', 'summary', 'opening', 'format')})
         # Spreadsheet applications must not execute creator-provided captions as formulas.

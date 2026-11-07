@@ -15,6 +15,10 @@ ROOT = Path(os.environ.get("DYB_WORKSPACE", str(Path.home() / "Documents" / "dyb
 SHANGHAI = timezone(timedelta(hours=8))
 
 
+class ArtifactBusyError(RuntimeError):
+    """Another operation owns this artifact; distinct from unavailable media."""
+
+
 @contextlib.contextmanager
 def artifact_lock(folder: Path):
     import msvcrt
@@ -27,7 +31,7 @@ def artifact_lock(folder: Path):
         try:
             msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
         except OSError:
-            raise RuntimeError('另一个任务正在处理同一媒体，请等待其完成，避免重复调用') from None
+            raise ArtifactBusyError('另一个任务正在处理同一媒体，请等待其完成，避免重复调用') from None
         try:
             yield
         finally:
