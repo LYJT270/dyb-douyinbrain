@@ -101,7 +101,7 @@
     "scripts/setup.ps1": "dbc615c6c56d0c6f98d8659cb7ae2e2bf626bc8bafa56bd742fdb4573256c50e",
     "scripts/smoke_install.ps1": "879fd8716260f12d601e4cfec07766ba60ba6e6e0e01382c83928adf135cd8cb",
     "scripts/suite-guard.ps1": "f5e0735b9518edf7be401b6eec3bfcd9a9010a642753691f2a3219c33844257d",
-    "scripts/suite-install.ps1": "a1741e32c595bea76f174da6aa4159c37fd64a4f79335fc439e10ad71593356c",
+    "scripts/suite-install.ps1": "fd49f0a41f342937842ca112b9d67eaf7b1d46c95c2f7f18452f34739040db24",
     "scripts/suite_manifest.py": "a961b24df11d13a812861cad98dc0988a3cc35f156a16ff348346cc24c425657",
     "scripts/updates.py": "8f279ed8eb656b5a34ebfce4ae6978aba260db7d4827fdc56b5e613c51495a5c",
     "scripts/verify_release.py": "5ac787201cf6612329b2c2ed4d4c6924e51b03bd9a6168c289a177d4e3cb2200",

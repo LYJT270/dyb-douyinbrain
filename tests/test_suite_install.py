@@ -118,10 +118,14 @@ class SuiteInstallTests(unittest.TestCase):
         self.assertNotEqual(ctypes.c_void_p(-1).value, handle)
         try:
             receipt = self.install(candidate, expected=1)
+            journal = json.loads(Path(receipt['suite_transaction']).read_text(encoding='utf-8-sig'))
+            diagnostic = json.dumps({'receipt': receipt, 'journal': journal}, ensure_ascii=False)
+            self.assertEqual('rolled_back', receipt['suite_rollback']['status'], diagnostic)
+            self.assertEqual(preserved, self.snapshot())
+            locked = next(item for item in journal['entries'] if item['name'] == 'dyb-download')
+            self.assertFalse(Path(locked['backup']).exists(), 'a locked old directory must not be partially moved')
         finally:
             kernel.CloseHandle(handle)
-        self.assertEqual('rolled_back', receipt['suite_rollback']['status'], json.dumps(receipt, ensure_ascii=False))
-        self.assertEqual(preserved, self.snapshot())
         # The same version can be retried after the actual file lock is released.
         self.install(candidate)
         self.assertEqual('1.3.2', self.invoke('dyb-download', 'guide')['version'])

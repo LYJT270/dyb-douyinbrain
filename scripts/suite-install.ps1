@@ -46,13 +46,13 @@ function Undo-DybSuiteInstall($Transaction, [switch]$IncludeCommitted) {
         if (Test-Path -LiteralPath $entry.backup) {
             if (Test-Path -LiteralPath $entry.target) {
                 if (Test-Path -LiteralPath $entry.failed_backup) { throw '失败程序备份位置已有内容，保留现场。' }
-                Move-Item -LiteralPath $entry.target -Destination $entry.failed_backup
+                [IO.Directory]::Move($entry.target, $entry.failed_backup)
             }
-            Move-Item -LiteralPath $entry.backup -Destination $entry.target
+            [IO.Directory]::Move($entry.backup, $entry.target)
         } elseif (-not $entry.had_existing -and (Test-Path -LiteralPath $entry.target)) {
             New-Item -ItemType Directory -Path (Split-Path -Parent $entry.failed_backup) -Force | Out-Null
             if (Test-Path -LiteralPath $entry.failed_backup) { throw '失败程序备份位置已有内容，保留现场。' }
-            Move-Item -LiteralPath $entry.target -Destination $entry.failed_backup
+            [IO.Directory]::Move($entry.target, $entry.failed_backup)
         } elseif ($entry.had_existing -and $entry.state -ne 'moving_old') {
             throw ('原程序备份缺失，未完成恢复：' + $entry.name)
         }
@@ -156,7 +156,9 @@ function Start-DybSuiteInstall([string]$Source, [string]$Target, [string]$StateR
             New-Item -ItemType Directory -Path $trash -Force | Out-Null
             $entry.state = 'moving_old'
             Save-DybSuiteJournal $script:suiteTransaction
-            Move-Item -LiteralPath $entry.target -Destination $entry.backup
+            # Backup is a sibling on the same volume. Rename the directory as a unit:
+            # Move-Item may fall back to a partial recursive move after a sharing violation.
+            [IO.Directory]::Move($entry.target, $entry.backup)
         }
         $entry.state = 'installing_new'
         Save-DybSuiteJournal $script:suiteTransaction
