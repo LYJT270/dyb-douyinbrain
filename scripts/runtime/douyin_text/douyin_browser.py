@@ -155,30 +155,40 @@ class ProfileFeed:
         return list(self.items.values())
 
 
+@contextmanager
 def _context(playwright, profile: Path, *, headless=True):
-    profile.mkdir(parents=True, exist_ok=True)
-    return playwright.chromium.launch_persistent_context(str(profile), headless=headless,
-        viewport={"width": 1440, "height": 1000}, locale="zh-CN", user_agent=USER_AGENT)
+    from .common import artifact_lock
+    profile = profile.resolve()
+    # The lease spans launch through close and is shared across worker processes.
+    # Anonymous contexts remain parallel; the worker's outer deadline still applies.
+    with artifact_lock(profile.parent / (profile.name + '-access'), wait_timeout=90):
+        profile.mkdir(parents=True, exist_ok=True)
+        context = playwright.chromium.launch_persistent_context(str(profile), headless=headless,
+            viewport={"width": 1440, "height": 1000}, locale="zh-CN", user_agent=USER_AGENT)
+        try:
+            yield context
+        finally:
+            context.close()
 
 
 @contextmanager
 def _session(playwright, profile: Path | None):
     """Normal acquisition always stays headless; only explicit login opens a window."""
     global _shared_browser
+    if profile is not None:
+        with _context(playwright, profile, headless=True) as context:
+            yield context
+        return
     browser = None
     context = None
     try:
-        if profile is not None:
-            context = _context(playwright, profile, headless=True)
+        if _reusing:
+            if _shared_browser is None:
+                _shared_browser = playwright.chromium.launch(headless=True)
+            browser = _shared_browser
         else:
-            if _reusing:
-                if _shared_browser is None:
-                    _shared_browser = playwright.chromium.launch(headless=True)
-                browser = _shared_browser
-            else:
-                browser = playwright.chromium.launch(headless=True)
-            context = browser.new_context(viewport={"width": 1440, "height": 1000},
-                                          locale="zh-CN")
+            browser = playwright.chromium.launch(headless=True)
+        context = browser.new_context(viewport={"width": 1440, "height": 1000}, locale="zh-CN")
         yield context
     finally:
         if context is not None:
@@ -384,8 +394,7 @@ def profile_videos(url: str, profile: Path, report: Path, *, max_scrolls=240) ->
 
     feed = ProfileFeed()
     user_id = urlsplit(url).path.rstrip("/").split("/")[-1]
-    with sync_playwright() as playwright:
-        context = _context(playwright, profile)
+    with sync_playwright() as playwright, _context(playwright, profile) as context:
         page = context.new_page()
 
         def capture(response):
@@ -420,7 +429,6 @@ def profile_videos(url: str, profile: Path, report: Path, *, max_scrolls=240) ->
                 if blocker:
                     raise acquisition.AcquisitionError([{"input_url": url, "reason": blocker}])
         finally:
-            context.close()
             write_json(report, {"complete": feed.complete, "response_count": feed.responses,
                 "video_count": len(feed.items), "non_video_count": len(feed.unsupported),
                 "unresolved_count": len(feed.unresolved), "coverage": "visible_to_current_session"})
@@ -538,8 +546,7 @@ def scan_profile(url: str, profile: Path | None, on_page, *, max_scrolls=600, ma
 
 def login(profile: Path) -> int:
     from playwright.sync_api import sync_playwright
-    with sync_playwright() as playwright:
-        context = _context(playwright, profile, headless=False)
+    with sync_playwright() as playwright, _context(playwright, profile, headless=False) as context:
         page = context.pages[0] if context.pages else context.new_page()
         page.goto("https://www.douyin.com/", wait_until="domcontentloaded", timeout=60000)
         print("请在专用浏览器完成抖音登录／验证。完成后关闭这个浏览器窗口，登录状态会保留在本机。", flush=True)
@@ -548,9 +555,4 @@ def login(profile: Path) -> int:
                 page.wait_for_timeout(1000)
         except Exception:
             pass
-        finally:
-            try:
-                context.close()
-            except Exception:
-                pass
     return 0

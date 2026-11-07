@@ -2,13 +2,42 @@
 from unittest.mock import patch
 
 import support  # noqa: F401
-from support import WorkspaceCase
+from support import Response, WorkspaceCase
 from test_douyin_browser import video
-from douyin_text import acquisition, asr, content, douyin_browser, media, workflow
+from douyin_text import acquisition, asr, content, credentials, douyin_browser, media, workflow
+from douyin_text.processes import Worker
 from douyin_text.common import read_json, write_json
 
 
 class ReliabilityTests(WorkspaceCase):
+    def test_profile_resume_keeps_failed_identity_until_its_acquisition_succeeds(self):
+        url = 'https://www.douyin.com/user/MS4test'
+        task = workflow.plan([url], self.root)
+        workflow.confirm(task['id'], 'transcribe', '转写主页全部作品', scope={'all': True}, root=self.root)
+        jobs = [{**douyin_browser.normalize(video(ident)), 'input': url, 'media': str(self.wav),
+                 'audio_verified': True} for ident in ('123', '456')]
+        failure = {'id': 'douyin-456', 'stage': 'audio', 'reason': 'media_unavailable'}
+        outcomes = [
+            {'jobs': jobs[:1], 'failures': [failure]},
+            {'jobs': jobs[:1], 'failures': [failure]},
+            {'jobs': jobs[:1], 'failures': []},
+            {'jobs': jobs, 'failures': []},
+        ]
+        with patch.object(Worker, 'run', side_effect=outcomes) as acquired, \
+                patch.object(credentials, 'load', return_value={'api_key': 'fixture'}), \
+                patch.object(asr.request, 'urlopen', side_effect=lambda *a, **k: Response()) as submitted:
+            for attempt in range(3):
+                result = workflow.run(task['id'], self.root)
+                self.assertEqual('incomplete', result['status'])
+                self.assertEqual('douyin-456', result['failures'][0]['id'])
+                self.assertEqual(attempt + 1, acquired.call_count)
+                self.assertEqual(4, submitted.call_count, 'cached success must not be billed again')
+            result = workflow.run(task['id'], self.root)
+        self.assertEqual('awaiting_review', result['status'])
+        self.assertEqual(2, len(result['results']))
+        self.assertEqual([], result['failures'])
+        self.assertEqual(8, submitted.call_count)
+
     def test_audio_binding_mismatch_stops_before_a_paid_request(self):
         task = self.task()
         job = media.discover([str(self.wav)], {}, self.root, self.root)[0]

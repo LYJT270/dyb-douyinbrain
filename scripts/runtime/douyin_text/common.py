@@ -6,6 +6,7 @@ import os
 import re
 import tempfile
 import contextlib
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -20,7 +21,7 @@ class ArtifactBusyError(RuntimeError):
 
 
 @contextlib.contextmanager
-def artifact_lock(folder: Path):
+def artifact_lock(folder: Path, *, wait_timeout: float = 0):
     import msvcrt
     folder.mkdir(parents=True, exist_ok=True)
     with (folder / 'work.lock').open('a+b') as handle:
@@ -28,10 +29,15 @@ def artifact_lock(folder: Path):
             handle.write(b'0')
             handle.flush()
         handle.seek(0)
-        try:
-            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-        except OSError:
-            raise ArtifactBusyError('另一个任务正在处理同一媒体，请等待其完成，避免重复调用') from None
+        deadline = time.monotonic() + wait_timeout
+        while True:
+            try:
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise ArtifactBusyError('另一个任务正在处理同一媒体，请等待其完成，避免重复调用') from None
+                time.sleep(min(0.05, max(0, deadline - time.monotonic())))
         try:
             yield
         finally:

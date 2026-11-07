@@ -252,7 +252,12 @@ def run(task_id: str, root: Path = ROOT, *, retry_evidence: str = "", anonymous_
         task.setdefault("retry_confirmations", []).append({"evidence": retry_evidence, "at": now()})
     if anonymous_only:
         task['anonymous_only'] = True
-    task.update(status="running", failures=[])
+    acquisition_stages = {'metadata', 'audio', 'acquisition'}
+    prior_gaps = list(task.get('acquisition_gaps', []))
+    for failure in task.get('failures', []):
+        if failure.get('stage') in acquisition_stages and failure not in prior_gaps:
+            prior_gaps.append(failure)
+    task.update(status="running", failures=[], acquisition_gaps=prior_gaps)
     run_started = time.monotonic()
     task['run_timing'] = {'started': now(), 'events': []}
     save(task, root)
@@ -271,7 +276,8 @@ def run(task_id: str, root: Path = ROOT, *, retry_evidence: str = "", anonymous_
         for number, value in enumerate(task['inputs'], 1):
             try:
                 cached_jobs = local_jobs(value, saved, task, root)
-                if cached_jobs:
+                unresolved_input = any(gap.get('input_number', number) == number for gap in prior_gaps)
+                if cached_jobs and not unresolved_input:
                     for subindex, job in enumerate(cached_jobs, 1):
                         job = {**job, 'input': value, 'input_number': number, 'input_item': subindex}
                         jobs.append(job)
@@ -313,6 +319,11 @@ def run(task_id: str, root: Path = ROOT, *, retry_evidence: str = "", anonymous_
             ready_jobs = [{**job, 'input_number': number, 'input': pending[outcome['input_number'] - 1]}
                           for job in outcome['jobs']]
             jobs.extend(ready_jobs)
+            # A profile can return successful jobs and unresolved identities in
+            # the same outcome. Persist both before paid work or interruption.
+            task['acquisition_gaps'] = [*task['acquisition_gaps'], *[
+                {**failure, 'input_number': number, 'number': number} for failure in outcome.get('failures', [])]]
+            save(task, root)
             # Persist identities before submitting anything paid. Resume can
             # find a completed/unknown receipt even after a process interruption.
             write_json(run_dir / 'jobs.json', jobs)
@@ -337,6 +348,15 @@ def run(task_id: str, root: Path = ROOT, *, retry_evidence: str = "", anonymous_
         for job in sorted(jobs, key=lambda x: (x['input_number'], x.get('input_item', 1))):
             ordered.setdefault(job['id'], job)
         jobs = list(ordered.values())
+        for gap in prior_gaps:
+            group = [job for job in jobs if gap.get('input_number', job['input_number']) == job['input_number']]
+            resolved = (any(job['id'] == gap['id'] for job in group) if gap.get('id') else
+                        bool(group) and not any(f.get('stage') in acquisition_stages and
+                            f.get('input_number') == gap.get('input_number') for f in task['failures']))
+            if not resolved and not any(f.get('id') == gap.get('id') and
+                                       f.get('input_number') == gap.get('input_number') for f in task['failures']):
+                task['failures'].append(gap)
+        task['acquisition_gaps'] = [f for f in task['failures'] if f.get('stage') in acquisition_stages]
         # Reserve a slot for a failed input, including mixed profile/video batches.
         next_number = 1
         for position in range(1, len(task['inputs']) + 1):

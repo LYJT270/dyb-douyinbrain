@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import unittest
+import subprocess
+import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from unittest.mock import patch, MagicMock
 
 import support  # noqa: F401
+from support import WorkspaceCase, SKILL_ROOT
 from douyin_text import douyin_browser as browser, media
 
 
@@ -12,6 +17,63 @@ def video(ident="123", **extra):
     return {"aweme_id": ident, "desc": "公开测试标题", "author": {"nickname": "测试作者"},
             "create_time": 1700000000,
             "video": {"duration": 12345, "play_addr": {"url_list": ["https://example.invalid/video.mp4"]}}, **extra}
+
+
+class PersistentProfileTests(WorkspaceCase):
+    def test_persistent_profile_is_owned_by_one_process_until_context_closes(self):
+        profile = self.root / '.local/douyin-profile'
+        code = """import sys
+from pathlib import Path
+from types import SimpleNamespace
+sys.path.insert(0, sys.argv[1])
+from douyin_text.douyin_browser import _session
+context = SimpleNamespace(close=lambda: None)
+playwright = SimpleNamespace(chromium=SimpleNamespace(launch_persistent_context=lambda *a, **k: context))
+with _session(playwright, Path(sys.argv[2])):
+    print('owned', flush=True)
+    sys.stdin.readline()
+"""
+        child = subprocess.Popen([sys.executable, '-u', '-c', code, str(SKILL_ROOT / 'scripts/runtime'), str(profile)],
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        launched, attempting = threading.Event(), threading.Event()
+        driver = MagicMock()
+        context = MagicMock()
+        driver.chromium.launch_persistent_context.side_effect = lambda *a, **k: (launched.set() or context)
+        def use_profile():
+            attempting.set()
+            with browser._session(driver, profile):
+                pass
+        try:
+            self.assertEqual('owned', child.stdout.readline().strip())
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(use_profile)
+                try:
+                    self.assertTrue(attempting.wait(2))
+                    self.assertFalse(launched.wait(0.2), 'persistent profile opened while another process owned it')
+                finally:
+                    child.stdin.write('\n')
+                    child.stdin.flush()
+                future.result(timeout=5)
+            self.assertTrue(launched.is_set())
+            context.close.assert_called_once()
+        finally:
+            if child.poll() is None:
+                child.communicate('\n', timeout=5)
+            else:
+                child.communicate()
+        self.assertEqual(0, child.returncode)
+
+    def test_failed_browser_launch_releases_profile_ownership(self):
+        profile = self.root / '.local/douyin-profile'
+        driver = MagicMock()
+        context = MagicMock()
+        driver.chromium.launch_persistent_context.side_effect = [RuntimeError('launch failed'), context]
+        with self.assertRaisesRegex(RuntimeError, 'launch failed'):
+            with browser._session(driver, profile):
+                pass
+        with browser._session(driver, profile):
+            pass
+        context.close.assert_called_once()
 
 
 class BrowserMetadataTests(unittest.TestCase):
