@@ -9,9 +9,9 @@
 - Item-level text registration preserves immutable revisions and detects edits, missing files, and stale dependencies.
 - Separate offline reanalysis tasks reuse verified material and historical review provenance without new acquisition or paid speech.
 
-本地验证通过 173 项行为测试、独立 Agent 纯文稿跨进程试用和 12 个旧任务只读兼容检查。版本与升级说明见 [1.5.0](docs/releases/v1.5.0.md)。
+本地验证通过 177 项行为测试、独立 Agent 纯文稿跨进程试用和 12 个旧任务只读兼容检查。版本与升级说明见 [1.5.0](docs/releases/v1.5.0.md)。
 
-Local validation passed 173 behavioral tests, an independent text-only cross-process Agent trial, and read-only recovery checks for 12 existing tasks. See [1.5.0](docs/releases/v1.5.0.md) for scope and upgrade details.
+Local validation passed 177 behavioral tests, an independent text-only cross-process Agent trial, and read-only recovery checks for 12 existing tasks. See [1.5.0](docs/releases/v1.5.0.md) for scope and upgrade details.
 
 ## 1.4.0 - 2026-11-07
 

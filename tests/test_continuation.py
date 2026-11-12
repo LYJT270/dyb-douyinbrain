@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from support import WorkspaceCase, content, workflow, read_json, write_json, SKILL_ROOT
+from support import WorkspaceCase, Response, credentials, content, workflow, read_json, write_json, SKILL_ROOT
 from douyin_text import continuation, creator, creator_review, work
 from douyin_text.common import digest
 import test_creator
@@ -84,6 +84,81 @@ class ContinuationTests(WorkspaceCase):
         self.assertEqual('review', task['content_history'][-1]['kind'])
         self.assertEqual(entry['sha256'], task['content_history'][-1]['files'][0]['sha256'])
         self.assertTrue(self.path(task['spoken']['files'][0]['snapshot_file']).is_file())
+
+    def test_analysis_requires_every_review_and_rechecks_registered_files(self):
+        task = self.text_task(2)
+        task.update(purpose='analyze', instruction='分析两篇文稿')
+        workflow.save(task, self.root)
+        files = self.write_texts(task, 'review')
+        first, second = [x['id'] for x in task['results']]
+        task = content.register_content(task['id'], files[:1], 'review', self.root, item_ids=[first])
+        self.assertEqual('awaiting_review', task['status'])
+        report = self.root / 'analysis.md'
+        report.write_text('两篇文稿的综合分析。', encoding='utf-8')
+        with self.assertRaises(ValueError):
+            workflow.finish_analysis(task['id'], report, self.root)
+        # Older records may already have the premature ready status.
+        task['status'] = 'awaiting_analysis'
+        workflow.save(task, self.root)
+        with self.assertRaisesRegex(ValueError, '完整登记'):
+            workflow.finish_analysis(task['id'], report, self.root)
+        task = content.register_content(task['id'], files[1:], 'review', self.root, item_ids=[second])
+        self.assertEqual('awaiting_analysis', task['status'])
+        files[0].write_text('登记后的人工作品修改。', encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, '已登记正文发生变化'):
+            workflow.finish_analysis(task['id'], report, self.root)
+        content.register_content(task['id'], files[:1], 'review', self.root, item_ids=[first])
+        self.assertEqual('completed', workflow.finish_analysis(task['id'], report, self.root)['status'])
+
+    def test_interrupted_batch_keeps_unfinished_scope_through_partial_delivery_and_fork(self):
+        other = self.parent / 'second.wav'
+        other.write_bytes(self.wav.read_bytes()[:-2] + b'\x01\x00')
+        task = workflow.plan([str(self.wav), str(other)], self.root)
+        workflow.confirm(task['id'], 'transcribe', '转写这两条', root=self.root)
+        transcribe, calls = workflow.transcribe, []
+        def interrupted(job, *args, **kwargs):
+            calls.append(job['id'])
+            if len(calls) == 2:
+                raise KeyboardInterrupt('process stopped between saved jobs')
+            return transcribe(job, *args, **kwargs)
+        with patch.object(workflow, 'transcribe', side_effect=interrupted):
+            with self.assertRaises(KeyboardInterrupt):
+                self.recognize_run(task)
+        task = workflow.load(task['id'], self.root)
+        self.assertEqual('running', task['status'])
+        self.assertEqual([], task['failures'])
+        self.assertEqual(1, len(task['results']))
+        before = workflow.task_path(task['id'], self.root).read_bytes()
+        resumed = continuation.resume(task_id=task['id'], root=self.root)['recovery']
+        self.assertEqual(before, workflow.task_path(task['id'], self.root).read_bytes())
+        self.assertTrue(any(a['action'] == 'resume_saved_items' for a in resumed['next_actions']))
+        self.assertIn(calls[1], [gap.get('id') for gap in resumed['coverage']['gaps']])
+        task = self.register_review(task)
+        self.assertEqual('incomplete', task['status'])
+        partial = content.deliver(task['id'], 'review', self.root)
+        self.assertFalse(partial['delivery']['complete'])
+        self.assertEqual('incomplete', partial['status'])
+        first_review = copy.deepcopy(partial['review']['files'][0])
+        fork = workflow.reanalyze(task['id'], '分析已有部分', self.root)
+        report = self.root / 'partial-analysis.md'
+        report.write_text('只分析已取得的第一条，第二条缺失。', encoding='utf-8')
+        self.assertEqual('incomplete', workflow.finish_analysis(fork['id'], report, self.root)['status'])
+        with patch.object(workflow.media, 'discover', side_effect=AssertionError('new discovery')), \
+             patch.object(credentials, 'load', return_value={'api_key': 'test-value'}), \
+             patch.object(workflow.asr.request, 'urlopen', side_effect=lambda *a, **k: Response()):
+            task = workflow.run(task['id'], self.root, saved_scope=True)
+        self.assertEqual(2, len(task['results']))
+        resumed = continuation.resume(task_id=task['id'], root=self.root)['recovery']
+        self.assertEqual([], resumed['coverage']['gaps'])
+        self.assertEqual([calls[1]], next(a['item_ids'] for a in resumed['next_actions'] if a['action'] == 'review_items'))
+        self.assertEqual(first_review, task['review']['files'][0])
+        new_review = self.root / 'second-review.txt'
+        new_review.write_text('第二条校对稿。', encoding='utf-8')
+        content.register_content(task['id'], [new_review], 'review', self.root, item_ids=[calls[1]])
+        final = content.deliver(task['id'], 'review', self.root)
+        self.assertTrue(final['delivery']['complete'])
+        self.assertEqual(2, final['delivery']['count'])
+        self.assertTrue(self.path(partial['delivery']['file']).is_file())
 
     def test_completed_delivery_is_reused_without_new_work(self):
         task = self.text_task()
@@ -185,6 +260,80 @@ class CreatorContinuationTests(WorkspaceCase):
         packet = creator_review.claim(task, 'tester', root=self.root)['packet']
         creator_review.record(task, self.answer(task, packet), 'tester', root=self.root)
         return task
+
+    def test_partial_review_rebuilds_after_missing_image_arrives(self):
+        for force in (False, True):
+            with self.subTest(reanalyze=force):
+                task = self.make(instruction=f'补齐图片 {force}')
+                value = test_creator.post(images=True)
+                value['images'].append({'uri': 'second', 'url_list': ['https://example.invalid/second']})
+                self.feed(task, [value])
+                creator.run(task, root=self.root, fetcher=self.material)
+                creator_review.prepare(task, root=self.root)
+                packet = creator_review.claim(task, 'tester', root=self.root)['packet']
+                result = creator_review.record(task, self.answer(task, packet), 'tester', root=self.root)
+                self.assertEqual(0, result['counts']['fully_analyzed'])
+                state = creator.load(task, self.root)
+                item = state['items']['douyin-100']
+                previous = copy.deepcopy(item['analysis'])
+                image = self.root / f'second-{force}.png'
+                image.write_bytes(b'new image')
+                item['media']['images'].append({'file': image.name, 'sha256': digest(image), 'index': 2})
+                item['media']['complete'] = True
+                creator.save(state, self.root)
+                creator_review.prepare(task, reanalyze=force, cached_only=True, root=self.root)
+                packet = creator_review.claim(task, 'tester', root=self.root)['packet']
+                source = read_json(self.path(packet['file']))['items'][0]
+                self.assertEqual([], source['gaps'])
+                self.assertEqual(2, len(source['images']))
+                self.assertEqual(previous, source['previous_review'])
+                answer = self.answer(task, packet)
+                data = read_json(answer)
+                data['items'][0]['review'].update(reuse_previous=True, viewed_images=[image.name])
+                write_json(answer, data)
+                result = creator_review.record(task, answer, 'tester', root=self.root)
+                self.assertEqual(1, result['counts']['fully_analyzed'])
+                self.assertEqual(previous['sha256'], digest(self.path(previous['file'])))
+
+    def test_repreparation_uses_new_cover_and_requested_frames_with_old_provenance(self):
+        task = self.make()
+        value = test_creator.post()
+        value['video']['cover'] = {'url_list': ['https://example.invalid/cover']}
+        self.feed(task, [value])
+        state = creator.load(task, self.root)
+        post = creator.records(state, self.root)[0]
+        state['items'][post['id']] = {'media': self.material(post, state, self.root, 60),
+                                    'speech': {'status': 'no_speech_detected'}}
+        creator.save(state, self.root)
+        assets = []
+        for name in ('old.png', 'new.png', 'cover.png'):
+            file = self.root / name
+            file.write_bytes(name.encode())
+            assets.append({'file': name, 'sha256': digest(file), 'at': 0})
+        with patch.object(creator_review.review, 'cached_frames', return_value={'frames': assets[:1]}), \
+             patch.object(creator_review.creator_files, 'cached_asset', return_value=None):
+            creator_review.prepare(task, cached_only=True, root=self.root)
+        packet = creator_review.claim(task, 'tester', root=self.root)['packet']
+        result = creator_review.record(task, self.answer(task, packet), 'tester', root=self.root)
+        self.assertEqual(0, result['counts']['fully_analyzed'])
+        with patch.object(creator_review.review, 'cached_frames', return_value={'frames': assets[1:2]}) as frames, \
+             patch.object(creator_review.creator_files, 'cached_asset', return_value=assets[2]):
+            creator_review.prepare(task, reanalyze=True, max_frames=12, strategy='action', cached_only=True, root=self.root)
+        self.assertEqual(12, frames.call_args.kwargs['maximum'])
+        self.assertEqual('action', frames.call_args.kwargs['strategy'])
+        packet = creator_review.claim(task, 'tester', root=self.root)['packet']
+        source = read_json(self.path(packet['file']))['items'][0]
+        self.assertEqual([], source['gaps'])
+        self.assertEqual({'new.png', 'cover.png'}, {i['file'] for i in source['images']})
+        answer = self.answer(task, packet)
+        data = read_json(answer)
+        data['items'][0]['review']['reuse_previous'] = True
+        write_json(answer, data)
+        self.assertEqual(1, creator_review.record(task, answer, 'tester', root=self.root)['counts']['fully_analyzed'])
+        with patch.object(creator_review.review, 'cached_frames', return_value={'frames': assets[1:2]}) as frames, \
+             patch.object(creator_review.creator_files, 'cached_asset', return_value=assets[2]):
+            creator_review.prepare(task, reanalyze=True, max_frames=2, cached_only=True, root=self.root)
+        self.assertEqual(2, frames.call_args.kwargs['maximum'])
 
     def test_offline_new_question_reuses_review_with_provenance_and_never_calls_network(self):
         original = self.analyzed()

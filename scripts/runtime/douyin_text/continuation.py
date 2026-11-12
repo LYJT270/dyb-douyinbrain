@@ -45,7 +45,7 @@ def _file_state(entry, root):
 
 
 def document_summary(task, root):
-    actions, gaps = [], list(task.get('failures', []))
+    actions, gaps = [], workflow.coverage_gaps(task, root)
     reviewed = content.inspect_content(task, 'review', root)
     spoken = content.inspect_content(task, 'spoken', root)
     originals_ok = True

@@ -15,9 +15,13 @@ This reads local records and files only: no network, recognition, execution, or 
 
 Read `recovery.next_actions`, the actual native task authorization, and valid artifacts, perform the applicable action, record the result, and resume again. Independent work can continue; blocked dependencies retain their gaps. Resuming uses the saved scope and observation time. Only an explicit update request refreshes a profile. Ordinary media recovery uses `run <task> --saved-scope`, limited to saved jobs; creator recovery uses its saved catalog without calling `discover`. Failed or unknown paid submissions still require investigation and explicit retry instructions.
 
+Saved jobs without successful results remain coverage gaps after interruption, even if no failure receipt was written. Partial deliveries and offline forks retain those gaps instead of treating the successful subset as the complete scope.
+
 ## Save individual items and preserve edits
 
 `register-review` and `register-spoken` accept repeated `--item <media-ID>` paired in order with `--file <file>`. They update only those successful items and preserve the others. Omitting `--item` retains whole-batch registration.
+
+Partial review registration still waits for the remaining items. `finish-analysis` rechecks review coverage and file versions for every successful source, even when an older record already claims readiness.
 
 New registrations store immutable version snapshots and source dependencies. Recovery distinguishes valid, edited, missing, stale, unreadable, and unregistered working files. Read edits against `snapshot_file` before continuing; `diff` is only a bounded excerpt. Keep user edits and save new output separately. Legacy records without snapshots cannot reconstruct overwritten text; inspect an old delivery if available. Recheck affected downstream outputs when inputs change. Independent items proceed; a whole-batch conclusion waits for missing material or an explicit decision to accept partial coverage.
 
@@ -31,6 +35,8 @@ New registrations store immutable version snapshots and source dependencies. Rec
 Both create separate native tasks and retain the parent. Ordinary tasks reuse verified text and reviewed copies. Creator tasks freeze the catalog, observation times, and available material, without carrying paid authorization. Offline tasks cannot discover, acquire, or request speech; explain additional needs before creating an appropriately authorized online task.
 
 Creator analysis continues through `prepare`, `claim`, actual analysis, `record`, and `report`. Offline preparation uses local material only; normal tasks can opt into the same boundary with `prepare --cached-only`. Repeated preparation retains valid pending/claimed packets. Finish or release active claims before forced reanalysis.
+
+An incomplete previous review triggers fresh preparation from currently available images, covers, and transcripts. Forced `--reanalyze` uses the requested frame settings. Historical review remains optional provenance; newly available images still require actual inspection.
 
 New tasks do not inherit a previous session's tool capabilities. When the current Agent can actually inspect images, pass `--images` to `creator reanalyze` or set `creator capabilities <task> --images` before preparation. Declare optional parallel vision only when currently available.
 

@@ -16,9 +16,9 @@ from . import catalog, creator, creator_files, review
 from .common import ROOT, artifact_lock, digest, inside, now, read_json, relative, write_json
 
 
-def _packet_input(post, item, task, root, max_frames, strategy, cached_only=False):
+def _packet_input(post, item, task, root, max_frames, strategy, cached_only=False, reuse_complete=True):
     previous = creator.review_record(item, post, root)
-    if previous:
+    if previous and previous['value'].get('complete') and reuse_complete:
         payload = copy.deepcopy(previous['value']['source'])
         payload.update(instruction=task['instruction'], analysis_key=creator.analysis_key(post, task),
                        images=previous['images'], previous_review=previous['record'])
@@ -76,6 +76,8 @@ def _packet_input(post, item, task, root, max_frames, strategy, cached_only=Fals
                'images': images, 'gaps': gaps, 'analysis_key': creator.analysis_key(post, task),
                'content_fingerprint': post['content_fingerprint'], 'instruction': task['instruction'],
                'strategy': strategy, 'transcript_file': speech.get('text')}
+    if previous:
+        payload['previous_review'] = previous['record']
     payload['basis_sha256'] = catalog.fingerprint(payload)
     return payload
 
@@ -140,7 +142,8 @@ def prepare(task_id, *, max_frames=None, strategy='content', batch_size=4, prepa
         def one(pair):
             post, item = pair
             try:
-                return _packet_input(post, item, task, root, max_frames, strategy, cached_only), None
+                return _packet_input(post, item, task, root, max_frames, strategy, cached_only,
+                                     reuse_complete=not reanalyze and max_frames is None and strategy == 'content'), None
             except Exception as exc:
                 return None, {'id': post['id'], 'error': str(exc)}
         with ThreadPoolExecutor(max_workers=prepare_workers) as pool:
@@ -310,6 +313,9 @@ def record(task_id, file: Path, worker, *, root=ROOT):
             viewed = set(checked.get('viewed_images', []))
             allowed = {i['file']: i for i in source['images']}
             required = set(allowed)
+            if inherited:
+                # Historical images remain optional evidence; newly prepared images still need review.
+                allowed.update({i['file']: i for i in inherited['images'] if i['file'] not in allowed})
             for supplement_path in checked.get('supplement_manifests', []):
                 registered = next((s for s in task.get('supplements', [])
                                    if s['file'] == supplement_path and s['id'] == row['id']), None)

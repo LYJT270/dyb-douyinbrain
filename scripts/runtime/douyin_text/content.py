@@ -135,8 +135,10 @@ def register_content(task_id: str, files: list[Path], kind: str, root: Path = RO
             if task.get('archive'):
                 task.setdefault('content_history', []).append({'kind': 'archive', **copy.deepcopy(task['archive'])})
         task.pop("archive", None)
-    if task.get("failures"):
+    if workflow.coverage_gaps(task, root):
         task["status"] = "incomplete"
+    elif kind == "review" and any(row['state'] != 'valid' for row in inspect_content(task, kind, root)):
+        task["status"] = "awaiting_review"
     elif kind == "review":
         task["status"] = {"transcribe": "ready_to_deliver", "analyze": "awaiting_analysis",
                           "rewrite": "awaiting_edit", "ingest": "ready_for_ingest",
@@ -211,6 +213,7 @@ def deliver(task_id: str, kind: str = "review", root: Path = ROOT) -> dict:
         entries = [{"id": x["id"], "file": x["text"]} for x in task["results"]]
     else:
         entries = checked_content(task, kind, root)
+    gaps = workflow.coverage_gaps(task, root)
     indices = numbers(task, root)
     bodies = [re.sub(r"\s+", " ", inside(root, x["file"]).read_text(encoding="utf-8-sig")).strip() for x in entries]
     text = "\r\n\r\n".join(f"{n}.{body}" for n, body in zip(indices, bodies)) + "\r\n"
@@ -224,8 +227,10 @@ def deliver(task_id: str, kind: str = "review", root: Path = ROOT) -> dict:
     task["delivery"] = {"file": relative(root, file), "sha256": checksum, "kind": kind,
                         "source_basis": [{'id': x['id'], 'sha256': digest(inside(root, x['file']))} for x in entries],
                         "count": len(entries), "numbers": indices, "at": now(),
-                        "complete": not bool(task.get("failures"))}
-    if task["purpose"] in {"transcribe", "rewrite"} and not task.get("failures"):
+                        "complete": not bool(gaps), "gaps": gaps}
+    if gaps:
+        task["status"] = "incomplete"
+    elif task["purpose"] in {"transcribe", "rewrite"}:
         if (task["purpose"] == "transcribe" and kind in {"review", "raw"}) or kind == "spoken":
             task["status"] = "completed"
     workflow.save(task, root)
