@@ -1,5 +1,7 @@
 # 运行命令与状态
 
+旧任务、重复素材或旧稿修改先用只读 `resume`，普通任务按保存范围继续用 `run <task> --saved-scope`；离线换问题用 `reanalyze <task> --instruction ...`。详细命令与授权边界见[恢复与复用](continuation.md)。
+
 默认使用随包 PowerShell 入口，不先打开浏览器识别。`<skill>` 取安装结果的 skill 路径，或当前 SKILL.md 的所在目录；`<task>` 取真实任务 ID。
 
 ```powershell

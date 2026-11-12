@@ -63,6 +63,8 @@ def create(spec, root=ROOT):
     value = {'schema': 1, 'id': 'work-' + uuid.uuid4().hex[:16], 'created': now(),
              'request': request, 'inputs': inputs, 'steps': steps, 'events': [],
              'authorization': 'Native task authorization remains authoritative; this record grants none.'}
+    value['input_fingerprints'] = {x: digest(Path(x)) for x in inputs
+                                   if not x.startswith(('http://', 'https://')) and Path(x).is_file()}
     _save(value, root)
     return show(value['id'], root)
 
@@ -111,9 +113,11 @@ def _artifacts(entries, root):
         try:
             file = inside(root, entry['file'])
             item['absolute_file'] = str(file)
-            item['valid'] = file.is_file() and digest(file) == entry['sha256']
+            item['state'] = 'missing' if not file.is_file() else ('valid' if digest(file) == entry['sha256'] else 'edited')
+            item['valid'] = item['state'] == 'valid'
         except (OSError, ValueError, KeyError):
             item['valid'] = False
+            item['state'] = 'unavailable'
         if not item['valid']:
             issues.append(entry.get('file', 'unknown'))
         result.append(item)

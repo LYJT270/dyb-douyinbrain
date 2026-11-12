@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import copy
 import time
 import uuid
 from datetime import date
@@ -71,6 +72,8 @@ def plan(values: list[str], root: Path = ROOT) -> dict:
             "inputs": normalized, "purpose": None, "results": [], "failures": [],
             "question": "本次要做什么？只转写、总结／分析、原稿入库，还是入库并编译？",
             "choices": PURPOSES}
+    task['input_fingerprints'] = {value: digest(Path(value)) for value in normalized
+                                  if not value.startswith(('http://', 'https://')) and Path(value).is_file()}
     if any(media.has_profile(value) for value in normalized):
         task["scope_question"] = "作者主页请同时选择：最新 N 条、指定日期范围或全部可访问视频。"
     save(task, root)
@@ -237,13 +240,64 @@ def transcribe(job: dict, task: dict, root: Path = ROOT, *, retry_failed: bool =
                 "markdown": relative(root, output / "transcript.md"), "text": relative(root, output / "transcript.txt")}
 
 
-def run(task_id: str, root: Path = ROOT, *, retry_evidence: str = "", anonymous_only: bool = False) -> dict:
+def coverage_gaps(task: dict, root: Path = ROOT) -> list[dict]:
+    """Include interrupted saved jobs even before a failure receipt was written."""
+    gaps = copy.deepcopy(task.get('failures', []))
+    for gap in task.get('acquisition_gaps', []):
+        if gap not in gaps:
+            gaps.append(copy.deepcopy(gap))
+    jobs_file = task_path(task['id'], root).parent / 'jobs.json'
+    jobs = read_json(jobs_file) if jobs_file.is_file() else []
+    ready = {item['id'] for item in task.get('results', [])}
+    for job in jobs:
+        if job['id'] not in ready and not any(gap.get('id') == job['id'] for gap in gaps):
+            gaps.append({'id': job['id'], 'stage': 'unfinished', 'input_number': job.get('input_number'),
+                         'number': job.get('number'), 'error': '已保存作品尚未完成，需沿原范围续办'})
+    return gaps
+
+
+def reanalyze(task_id: str, instruction: str, root: Path = ROOT) -> dict:
+    from . import content
+    if not instruction.strip():
+        raise ValueError('需要新的分析问题')
+    source = load(task_id, root)
+    content.originals(source, root)
+    task = {key: copy.deepcopy(source[key]) for key in
+            ('inputs', 'results', 'failures', 'input_kind', 'text_imports', 'input_fingerprints', 'category') if key in source}
+    task.update(failures=coverage_gaps(source, root),
+                id='dy-' + uuid.uuid4().hex[:16], created=now(), purpose='analyze', evidence=instruction.strip(),
+                instruction=instruction.strip(), scope={}, offline=True, status='awaiting_review',
+                snapshot={'source_task': task_id, 'source_created': source.get('created')})
+    if source.get('review'):
+        # Fork immutable, verified copies so later editing the parent cannot silently change this analysis.
+        try:
+            reviewed = content.checked_content(source, 'review', root)
+        except (ValueError, OSError):
+            reviewed = []
+        files = []
+        for entry in reviewed:
+            original = inside(root, entry['file'])
+            target = task_path(task['id'], root).parent / 'review-source' / (entry['id'] + original.suffix)
+            content.immutable(target, original.read_bytes())
+            files.append({**entry, 'file': relative(root, target)})
+        if files:
+            task['review'] = {**copy.deepcopy(source['review']), 'files': files}
+            task['status'] = 'awaiting_analysis'
+    save(task, root)
+    return task
+
+
+def run(task_id: str, root: Path = ROOT, *, retry_evidence: str = "", anonymous_only: bool = False,
+        saved_scope: bool = False) -> dict:
     task = load(task_id, root)
     if not task.get("purpose") or not task.get("evidence"):
         raise ValueError("先询问并确认本次用途；未下载、未调用豆包、未入库")
-    if task["status"] in {"completed", "published"}:
+    if task.get('offline'):
+        raise ValueError('离线分析使用已有材料；需要补获取或识别时另行建立明确授权的任务')
+    gaps = coverage_gaps(task, root)
+    if not gaps and task["status"] in {"completed", "published"}:
         return task
-    if task["status"] in {"awaiting_review", "awaiting_edit", "awaiting_analysis", "awaiting_compile", "ready_for_ingest", "ready_to_deliver"}:
+    if not gaps and task["status"] in {"awaiting_review", "awaiting_edit", "awaiting_analysis", "awaiting_compile", "ready_for_ingest", "ready_to_deliver"}:
         return task
     if task["status"] in {"publishing", "publication_unknown", "publish_failed", "ready_to_publish"}:
         from .vault import publish
@@ -271,10 +325,15 @@ def run(task_id: str, root: Path = ROOT, *, retry_evidence: str = "", anonymous_
             return task
         run_dir = task_path(task_id, root).parent
         saved = read_json(run_dir / 'jobs.json') if (run_dir / 'jobs.json').is_file() else []
+        if saved_scope and not saved:
+            raise ValueError('尚无已保存的作品范围，不能把重新发现来源当作恢复')
         jobs, pending, positions = [], [], []
         result_by_id = {item['id']: item for item in task.get('results', [])}
         for number, value in enumerate(task['inputs'], 1):
             try:
+                if saved_scope:
+                    jobs.extend(job for job in saved if job.get('input_number', 1) == number)
+                    continue
                 cached_jobs = local_jobs(value, saved, task, root)
                 unresolved_input = any(gap.get('input_number', number) == number for gap in prior_gaps)
                 if cached_jobs and not unresolved_input:
@@ -301,6 +360,11 @@ def run(task_id: str, root: Path = ROOT, *, retry_evidence: str = "", anonymous_
             event = {'id': job['id'], 'input_number': job['input_number'],
                      'ready_at_seconds': round(started - run_started, 3)}
             try:
+                original_input = job.get('input', '')
+                expected = task.get('input_fingerprints', {}).get(original_input)
+                if expected and Path(original_input).is_file() and digest(Path(original_input)) != expected:
+                    if cached_result(job, task, root) is None:
+                        raise ValueError('原本地素材已经变化，缺少旧版有效缓存；保留任务，请指定原素材或新建任务')
                 result_by_id[job['id']] = {**transcribe(job, task, root, retry_failed=bool(retry_evidence)),
                                             'number': job.get('number', job['input_number'])}
                 event['status'] = result_by_id[job['id']]['status']
@@ -353,6 +417,8 @@ def run(task_id: str, root: Path = ROOT, *, retry_evidence: str = "", anonymous_
             resolved = (any(job['id'] == gap['id'] for job in group) if gap.get('id') else
                         bool(group) and not any(f.get('stage') in acquisition_stages and
                             f.get('input_number') == gap.get('input_number') for f in task['failures']))
+            if saved_scope and not gap.get('id'):
+                resolved = False
             if not resolved and not any(f.get('id') == gap.get('id') and
                                        f.get('input_number') == gap.get('input_number') for f in task['failures']):
                 task['failures'].append(gap)
@@ -403,15 +469,23 @@ def run(task_id: str, root: Path = ROOT, *, retry_evidence: str = "", anonymous_
 
 
 def finish_analysis(task_id: str, file: Path, root: Path = ROOT) -> dict:
+    from . import content
     task = load(task_id, root)
     if task["purpose"] != "analyze" or task["status"] != "awaiting_analysis":
         raise ValueError("本任务不在等待分析稿的阶段")
+    content.originals(task, root)
+    content.checked_content(task, 'review', root)
+    gaps = coverage_gaps(task, root)
     source = inside(root, file)
     if source.suffix != ".md" or not source.is_file():
         raise ValueError("分析稿应为项目内已生成的 Markdown 文件")
     if any(source == inside(root, item["markdown"]) for item in task["results"]):
         raise ValueError("分析稿与转写原稿应分别保存")
-    task.update(status="completed", analysis={"file": relative(root, source), "sha256": digest(source)}, completed=now())
+    if task.get('analysis'):
+        task.setdefault('analysis_history', []).append(copy.deepcopy(task['analysis']))
+    task.update(status="incomplete" if gaps else "completed",
+                analysis={"file": relative(root, source), "sha256": digest(source),
+                          "complete": not gaps, "gaps": gaps}, completed=now())
     save(task, root)
     return task
 

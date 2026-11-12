@@ -1,5 +1,7 @@
 # 组合任务与续办
 
+先按[恢复与复用](continuation.md)用 `resume --task <workID>` 获取当前目标、有效成果和下一步；未知 ID 时先 `resume` 查候选。它从现有总记录与原生记录计算摘要，不建立另一套任务状态。
+
 跨功能的组合任务，或续办时需要串联多个原生任务，用 `work` 保存轻量总记录；普通单步任务不必额外创建。续办先用 `work list` 查找，必要时用 `--task <原生任务 ID>` 筛选，再 `work show <workID>` 读取步骤、依赖、原生产物和当前有效性。输出的 `steps[].effective_status`、`ready`、`blocked_by`、`source_artifacts`、`artifact_issues`、`dependency_issues`、`native_status` 及顶层 `ready_steps` 供选择下一步；继续前仍需读取实际原生任务中的授权与产物。命令只读计算状态，不联网或发起付费请求。
 
 新建组合记录时，在 workspace 准备计划 JSON，`request` 保留用户原话，`inputs` 写实际素材，步骤按展示及依赖顺序排列；依赖必须指向较早的步骤。例如：
