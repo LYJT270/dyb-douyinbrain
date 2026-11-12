@@ -6,6 +6,7 @@ an explicit per-image attestation and grounded per-item results, with immutable 
 from __future__ import annotations
 
 import math
+import copy
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -15,7 +16,15 @@ from . import catalog, creator, creator_files, review
 from .common import ROOT, artifact_lock, digest, inside, now, read_json, relative, write_json
 
 
-def _packet_input(post, item, task, root, max_frames, strategy):
+def _packet_input(post, item, task, root, max_frames, strategy, cached_only=False):
+    previous = creator.review_record(item, post, root)
+    if previous:
+        payload = copy.deepcopy(previous['value']['source'])
+        payload.update(instruction=task['instruction'], analysis_key=creator.analysis_key(post, task),
+                       images=previous['images'], previous_review=previous['record'])
+        payload.pop('basis_sha256', None)
+        payload['basis_sha256'] = catalog.fingerprint(payload)
+        return payload
     material = creator.review_material(post, item, root)
     speech = item.get('speech', {})
     result = read_json(inside(root, speech['result'])) if speech.get('result') else {'text': '', 'segments': []}
@@ -42,8 +51,11 @@ def _packet_input(post, item, task, root, max_frames, strategy):
             gaps.append('原视频尚未获取')
         if post.get('covers'):
             try:
-                cover = creator_files.download(post['covers'], root / '.cache/creator-media' / post['id'] /
-                    post['content_fingerprint'][:20] / 'cover', root, image=True, timeout=60)
+                folder = root / '.cache/creator-media' / post['id'] / post['content_fingerprint'][:20] / 'cover'
+                cover = (creator_files.cached_asset(folder, root) if cached_only or task.get('offline') else
+                         creator_files.download(post['covers'], folder, root, image=True, timeout=60))
+                if not cover:
+                    raise RuntimeError('本地没有封面，未联网补取')
                 images.insert(0, {'file': cover['file'], 'sha256': cover['sha256'], 'role': 'cover'})
             except Exception as exc:
                 gaps.append('封面获取失败：' + str(exc))
@@ -69,7 +81,7 @@ def _packet_input(post, item, task, root, max_frames, strategy):
 
 
 def prepare(task_id, *, max_frames=None, strategy='content', batch_size=4, prepare_workers=2,
-            reanalyze=False, item_ids=None, root=ROOT):
+            reanalyze=False, item_ids=None, cached_only=False, root=ROOT):
     if not 1 <= batch_size <= 16 or not 1 <= prepare_workers <= 2 or max_frames is not None and not 1 <= max_frames <= 120:
         raise ValueError('批次大小应为 1–16，准备并发为 1–2，每条帧上限为 1–120')
     task = creator.load(task_id, root)
@@ -83,22 +95,44 @@ def prepare(task_id, *, max_frames=None, strategy='content', batch_size=4, prepa
         posts = creator.records(task, root)
         if item_ids is not None and not set(item_ids).issubset({p['id'] for p in posts}):
             raise ValueError('指定作品不在本次清单内')
+        retained = []
+        current = {p['id']: p for p in posts}
+        for packet in task.get('packets', []):
+            if packet['status'] not in ('pending', 'claimed'):
+                continue
+            if reanalyze:
+                if packet['status'] == 'claimed' and packet.get('lease_until', 0) > time.time():
+                    raise ValueError('请先结束或释放已领取的核对包，再重新分析')
+                continue
+            try:
+                file = inside(root, packet['file'])
+                valid = digest(file) == packet['sha256'] and all(
+                    row['id'] in current and row['analysis_key'] == creator.analysis_key(current[row['id']], task)
+                    for row in read_json(file)['items'])
+                if valid:
+                    retained.append(packet)
+            except (OSError, ValueError, KeyError):
+                pass  # Old files are preserved; invalid packets are replaced by freshly prepared local evidence.
+        queued = {ident for p in retained for ident in p['item_ids']}
         pending, reused, errors, waiting = [], [], [], []
         for post in posts:
             if item_ids is not None and post['id'] not in item_ids:
                 continue
+            if post['id'] in queued:
+                continue
             item = task['items'].get(post['id'], {})
             cached = state['items'].get(post['id'], {})
-            analysis = cached.get('analysis', {})
+            analysis = item.get('analysis') or ({} if task.get('offline') else cached.get('analysis', {}))
             if not reanalyze and analysis.get('key') == creator.analysis_key(post, task) and analysis.get('complete'):
                 file = inside(root, analysis['file'])
-                if file.is_file() and digest(file) == analysis.get('sha256'):
+                if file.is_file() and digest(file) == analysis.get('sha256') and creator.review_record(
+                        {**(item or cached), 'review_evidence': analysis}, post, root):
                     task['items'].setdefault(post['id'], {})['analysis'] = analysis
                     reused.append(post['id'])
                     continue
             material = item.get('media', {})
             speech_ready = item.get('speech', {}).get('status') in ('transcribed', 'reused', 'no_speech_detected', 'no_audio_stream', 'not_applicable')
-            if not (material.get('asset') or material.get('images')) or not speech_ready:
+            if not creator.review_record(item, post, root) and (not (material.get('asset') or material.get('images')) or not speech_ready):
                 waiting.append(post['id'])
                 continue
             pending.append((post, item))
@@ -106,7 +140,7 @@ def prepare(task_id, *, max_frames=None, strategy='content', batch_size=4, prepa
         def one(pair):
             post, item = pair
             try:
-                return _packet_input(post, item, task, root, max_frames, strategy), None
+                return _packet_input(post, item, task, root, max_frames, strategy, cached_only), None
             except Exception as exc:
                 return None, {'id': post['id'], 'error': str(exc)}
         with ThreadPoolExecutor(max_workers=prepare_workers) as pool:
@@ -139,14 +173,14 @@ def prepare(task_id, *, max_frames=None, strategy='content', batch_size=4, prepa
             image_count += frames
         flush()
         # Old packets stay on disk as evidence, but their claims cannot write current results.
-        task['packets'] = packets
+        task['packets'] = [*retained, *packets]
         task['preparation'] = {'at': now(), 'reused_analysis': reused, 'errors': errors,
                                'waiting_materials_or_speech': waiting,
                                'review_completed': False, 'cloud_asr_called': False}
         task['status'] = 'awaiting_visual_analysis'
         task['report'] = None
         creator.save(task, root)
-    return {**creator.summary(task, root), 'packets': packets, 'preparation': task['preparation']}
+    return {**creator.summary(task, root), 'packets': task['packets'], 'preparation': task['preparation']}
 
 
 def claim(task_id, worker, *, root=ROOT):
@@ -259,6 +293,18 @@ def record(task_id, file: Path, worker, *, root=ROOT):
                 validated.append((row, source, None))
                 continue
             checked = row.get('review', {})
+            inherited = None
+            if checked.get('reuse_previous'):
+                reference = source.get('previous_review')
+                inherited = creator.review_record({**task['items'].get(row['id'], {}), 'review_evidence': reference}, post, root) if reference else None
+                if not inherited:
+                    raise ValueError('已有核对依据缺失或变化，不能复用')
+                # Preserve historical attestation with provenance; explicit new images are checked below.
+                checked = {**copy.deepcopy(inherited['value']['review']), **checked,
+                           'reused_from': reference['file'], 'reused_recorded_at': inherited['value']['recorded'],
+                           'viewed_images': sorted(set(inherited['value']['review'].get('viewed_images', [])) |
+                                                   set(checked.get('viewed_images', []))),
+                           'supplement_manifests': checked.get('supplement_manifests', [])}
             if checked.get('read_full_transcript') is not True:
                 raise ValueError('需要确认实际完整读取了该作品的文稿')
             viewed = set(checked.get('viewed_images', []))
@@ -295,6 +341,7 @@ def record(task_id, file: Path, worker, *, root=ROOT):
                 _evidence(correction.get('evidence'), source, viewed)
             visual_complete = bool(required) and required.issubset(viewed) and not source['gaps']
             validated.append(({**row, 'review': {**checked, 'text': corrected}, 'source': source,
+                               'evidence_images': list(allowed.values()), 'review_reused': bool(inherited),
                                'visual_complete': visual_complete, 'complete': visual_complete and source['speech_ready'],
                                'recorded': now(), 'worker': worker}, source, corrected))
         state = creator.book(task, root)
@@ -311,12 +358,15 @@ def record(task_id, file: Path, worker, *, root=ROOT):
             review_file.write_text(corrected, encoding='utf-8')
             item['analysis'] = {'file': relative(root, output), 'sha256': digest(output),
                                 'review_file': relative(root, review_file), 'key': source['analysis_key'],
+                                'review_reused': row['review_reused'],
                                 'visual_complete': row['visual_complete'], 'complete': row['complete']}
+            item['review_evidence'] = copy.deepcopy(item['analysis'])
             item.pop('analysis_error', None)
             state['items'][row['id']] = {**state['items'].get(row['id'], {}), **item}
         packet.update(status='recorded', completed=now())
         task.update(status='awaiting_report', report=None)
-        creator.save_book(task, state, root)
+        if not task.get('offline'):
+            creator.save_book(task, state, root)
         creator.save(task, root)
     return creator.export(task_id, root=root)
 

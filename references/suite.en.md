@@ -1,6 +1,6 @@
 # Douyin-brain suite: routing and shared rules
 
-> This guide describes the unreleased local 1.3.1 source candidate. Availability depends on the actual installation, host discovery, and task results.
+> The base suite starts at 1.4.0; recovery is available from 1.5.0. Availability depends on the actual installation, host discovery, and task results.
 
 ## Choose an entry
 
@@ -23,6 +23,8 @@ The suite shares one first-introduction state. Before installation, introduce th
 At the start of a new task, run `check-update` as described in [runtime.md](runtime.md#版本检查与升级), and notify only when `should_notify=true`. If checking is unavailable, report the actual condition and continue work that does not depend on it. Apply an update through the main entry when the user explicitly requests it and reread the new instructions according to the result. Follow [setup.md](setup.md) and the installation guide for configuration or migration. All entries share settings and credentials; honor the user's chosen paths and do not configure each child separately. If no workspace is registered, the Agent can still handle existing text directly; configure the intended workspace or use the text-only entry in the runtime guide when a persistent task is needed.
 
 ## Execute and deliver
+
+For continued work, repeated inputs, or edits to prior drafts, follow [recovery and reuse](continuation.en.md). Read the next-action summary and actual authority, then continue the requested outcome; resume preserves scope, while update refreshes it.
 
 - Act on a clear goal and preserve still-valid authorization; ask the most important question only if material or intent is unclear. Ordinary profile transcription needs a scope, while an explicit full-profile analysis or download already supplies one.
 - Process existing text directly, preserving the source and without speech recognition. For media, follow [runtime.md](runtime.md) to acquire audio, call Doubao Speech, and review using the Agent's actual capabilities. Its acquisition, login, paid-retry, and valid-cache rules continue to apply.

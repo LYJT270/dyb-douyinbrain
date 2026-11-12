@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from . import asr, credentials, media, vault, workflow, content, setup, review
-from . import creator_cli, onboarding, work
+from . import creator_cli, onboarding, work, continuation
 from .common import ROOT, RESOURCE_ROOT, SKILL_ROOT, config
 
 
@@ -45,6 +45,7 @@ def parser() -> argparse.ArgumentParser:
     sub = root.add_subparsers(dest="command", required=True)
     creator_cli.add_parser(sub)
     work.add_parser(sub)
+    continuation.add_parser(sub)
     sub.add_parser("doctor")
     welcome = sub.add_parser('welcome', help='显示功能与首次使用引导，不调用语音识别')
     welcome.add_argument('--lang', choices=('zh', 'en'), default='zh')
@@ -84,6 +85,10 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("task")
     run.add_argument("--retry-evidence", default="", help="用户明确重试失败/未知请求的原话")
     run.add_argument('--anonymous-only', action='store_true', help='获取素材时不使用已保存的账号或浏览器状态')
+    run.add_argument('--saved-scope', action='store_true', help='只处理 jobs.json 已保存的作品，不重新发现输入或主页')
+    offline = sub.add_parser('reanalyze', help='基于普通任务的已有文稿建立独立离线分析')
+    offline.add_argument('task')
+    offline.add_argument('--instruction', required=True)
     for name in ("show", "preview", "export-srt"):
         sub.add_parser(name).add_argument("task")
     finish = sub.add_parser("finish-analysis")
@@ -106,6 +111,7 @@ def parser() -> argparse.ArgumentParser:
         edit.add_argument("task")
         edit.add_argument("--file", action="append", type=Path, required=True)
         edit.add_argument("--evidence", default="")
+        edit.add_argument('--item', action='append', help='按此顺序仅登记这些成功素材，保留其他条目的有效成果')
     deliver = sub.add_parser("deliver", help="按原顺序合并正文，每条一段")
     deliver.add_argument("task")
     deliver.add_argument("--kind", choices=["review", "spoken", "raw"], default="review")
@@ -126,7 +132,10 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        if args.command == 'work':
+        if args.command == 'resume':
+            result = continuation.resume(task_id=args.task, inputs=args.input, purpose=args.purpose,
+                                         instruction=args.instruction, request=args.request)
+        elif args.command == 'work':
             result = work.dispatch(args)
         elif args.command == 'creator':
             result = creator_cli.dispatch(args)
@@ -154,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
             result = content.plan_text(args.file)
         elif args.command in {"register-review", "register-spoken"}:
             result = content.register_content(args.task, args.file,
-                "review" if args.command == "register-review" else "spoken", evidence=args.evidence)
+                "review" if args.command == "register-review" else "spoken", evidence=args.evidence, item_ids=args.item)
         elif args.command == "deliver":
             result = content.deliver(args.task, args.kind)
         elif args.command == "archive":
@@ -172,7 +181,10 @@ def main(argv: list[str] | None = None) -> int:
                                       instruction=args.instruction, category=args.category,
                                       retranscribe=args.retranscribe)
         elif args.command == "run":
-            result = workflow.run(args.task, retry_evidence=args.retry_evidence, anonymous_only=args.anonymous_only)
+            result = workflow.run(args.task, retry_evidence=args.retry_evidence, anonymous_only=args.anonymous_only,
+                                  saved_scope=args.saved_scope)
+        elif args.command == 'reanalyze':
+            result = workflow.reanalyze(args.task, args.instruction)
         elif args.command == "show":
             result = workflow.load(args.task)
         elif args.command == "preview":

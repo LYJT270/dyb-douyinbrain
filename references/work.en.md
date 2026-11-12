@@ -1,5 +1,7 @@
 # Combined work and resumption
 
+Start with `resume --task <workID>` as described in [recovery](continuation.en.md) to inspect the goal, valid results, gaps, and next actions. Use `resume` to find candidates when the ID is unknown. This reads existing native and work records rather than maintaining a second task database.
+
 Use a lightweight `work` record for combined goals or resumption across native tasks; ordinary single-step tasks do not need one. On resumption, search with `work list` (optionally `--task <native-task-ID>`), then use `work show <workID>` to inspect steps, dependencies, linked tasks, artifacts, and their current validity. The output's `steps[].effective_status`, `ready`, `blocked_by`, `source_artifacts`, `artifact_issues`, `dependency_issues`, `native_status`, and top-level `ready_steps` help select the next step; still read the actual native task's authorization and artifacts before continuing. Showing a record is read-only and makes no network or paid request.
 
 For a new record, prepare a plan JSON in the workspace with the user's actual words and material. Steps appear in display order and may depend only on earlier steps:

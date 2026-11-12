@@ -22,7 +22,7 @@ try {
     }
     if ($BrainArgs.Count -eq 1 -and $BrainArgs[0] -eq 'guide') {
         $references = @{}
-        foreach ($topic in @('suite','onboarding','runtime','content','creator','knowledge')) {
+        foreach ($topic in @('suite','onboarding','runtime','content','creator','knowledge','work','continuation')) {
             $references[$topic] = Join-Path $sharedRoot ('references/' + $topic + '.md')
         }
         $result = @{status='ready';skill=$name;version=$manifest.version;shared_root=$sharedRoot;

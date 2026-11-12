@@ -59,6 +59,71 @@ def save_book(task, state, root):
     write_json(account_dir(task, root) / 'state.json', state)
 
 
+def require_online_task(task):
+    if task.get('offline'):
+        raise ValueError('此任务基于已有材料离线分析；新增获取或识别须另建明确授权的在线任务')
+
+
+def reanalyze(task_id, instruction, *, images=False, parallel_vision=False, root=ROOT):
+    """Fork a frozen catalog and existing evidence without refreshing or carrying paid authority."""
+    if not instruction.strip():
+        raise ValueError('需要新的分析问题')
+    source = load(task_id, root)
+    with artifact_lock(account_dir(source, root)):
+        source = load(task_id, root)
+        posts = records(source, root)
+        if not posts:
+            raise ValueError('原任务没有已保存的作品清单')
+        task = copy.deepcopy(source)
+        task.update(id='creator-' + uuid.uuid4().hex[:16], created=now(), instruction=instruction.strip(),
+                    mode='analyze', status='awaiting_visual_analysis', offline=True,
+                    authorizations=[], timing={}, report=None, packets=[], supplements=[])
+        task['capabilities'] = {'images': bool(images), 'parallel_vision': bool(images and parallel_vision)}
+        for key in ('preparation',):
+            task.pop(key, None)
+        task['snapshot'] = {'source_task': task_id, 'at': now(), 'discovery': copy.deepcopy(source['discovery']),
+                            'catalog_sha256': catalog.fingerprint(posts)}
+        for item in task['items'].values():
+            if item.get('analysis'):
+                item['review_evidence'] = copy.deepcopy(item['analysis'])
+            item.pop('analysis', None)
+            item.pop('analysis_error', None)
+        write_json(task_path(task['id'], root).parent / 'catalog.json', {'posts': posts})
+        save(task, root)
+    return summary(task, root)
+
+
+def review_record(item, post, root):
+    """Verify prior review independently of the question; never invent a fresh visual attestation."""
+    saved = item.get('review_evidence') or item.get('analysis') or {}
+    if not saved.get('file'):
+        return None
+    try:
+        file = inside(root, saved['file'])
+        if digest(file) != saved.get('sha256'):
+            return None
+        value = read_json(file)
+        source = value['source']
+        if source['content_fingerprint'] != post['content_fingerprint']:
+            return None
+        if digest(inside(root, saved['review_file'])) != __import__('hashlib').sha256(value['review']['text'].encode('utf-8')).hexdigest():
+            return None
+        if item.get('speech', {}).get('result'):
+            speech = read_json(inside(root, item['speech']['result']))
+            if speech.get('text') != source['transcript']:
+                return None
+            text_file = item['speech'].get('text')
+            if text_file and digest(inside(root, text_file)) != speech.get('output_sha256', {}).get('txt'):
+                return None
+        images = value.get('evidence_images', source['images'])
+        for image in images:
+            if digest(inside(root, image['file'])) != image['sha256']:
+                return None
+        return {'record': saved, 'value': value, 'images': images}
+    except (OSError, ValueError, KeyError):
+        return None
+
+
 def plan(source, *, mode='analyze', quality=None, instruction=DEFAULT_INSTRUCTION,
          images=False, parallel_vision=False, root=ROOT):
     if mode not in ('analyze', 'download'):
@@ -90,6 +155,7 @@ def discover(task_id, *, anonymous_only=False, max_seconds=600, root=ROOT, scann
     if max_seconds <= 0:
         raise ValueError('发现时限应大于 0')
     task = load(task_id, root)
+    require_online_task(task)
     folder = task_path(task_id, root).parent
     with artifact_lock(account_dir(task, root)):
         # A new discovery always requests the public feed, even when media is cached.
@@ -244,6 +310,7 @@ def usage(task, root, *, price_per_hour=None, item_ids=None):
 
 def preflight(task_id, *, price_per_hour=None, item_ids=None, root=ROOT):
     task = load(task_id, root)
+    require_online_task(task)
     quote = usage(task, root, price_per_hour=price_per_hour, item_ids=item_ids)
     write_json(task_path(task_id, root).parent / 'usage.json', quote)
     write_json(task_path(task_id, root).parent / 'usage' / (quote['token'] + '.json'), quote)
@@ -255,6 +322,7 @@ def authorize(task_id, token, evidence, *, max_audio_seconds=None, root=ROOT):
     if not evidence.strip():
         raise ValueError('需要用户实际授权整批付费转写的原话')
     task = load(task_id, root)
+    require_online_task(task)
     with artifact_lock(account_dir(task, root)):
         task = load(task_id, root)
         if task['mode'] != 'analyze':
@@ -408,6 +476,7 @@ def run(task_id, *, download_workers=2, asr_workers=1, item_timeout=300, retry_e
     if not 1 <= download_workers <= 4 or not 1 <= asr_workers <= 2 or item_timeout <= 0:
         raise ValueError('获取并发范围为 1–4，语音并发为 1–2，单条超时应大于 0')
     task = load(task_id, root)
+    require_online_task(task)
     with artifact_lock(account_dir(task, root)):
         task = load(task_id, root)
         posts = records(task, root)
@@ -557,7 +626,8 @@ def analysis_record(item, post, task, root):
     file = inside(root, saved['file'])
     if not file.is_file() or digest(file) != saved.get('sha256'):
         return None
-    return read_json(file)
+    reviewed = review_record({**item, 'review_evidence': saved}, post, root)
+    return reviewed['value'] if reviewed else None
 
 
 def review_material(post, item, root):
@@ -576,7 +646,18 @@ def report_record(task, root):
     if not saved.get('file'):
         return None
     file = inside(root, saved['file'])
-    return read_json(file) if file.is_file() and digest(file) == saved.get('sha256') else None
+    if not file.is_file() or digest(file) != saved.get('sha256'):
+        return None
+    value = read_json(file)
+    posts = records(task, root)
+    snapshot = {p['id']: {'analysis': task['items'].get(p['id'], {}).get('analysis'),
+                          'statistics': p['statistics'], 'observed_at': p['observed_at']} for p in posts}
+    if value.get('basis_sha256') != catalog.fingerprint(snapshot):
+        return None
+    if any(task['items'].get(p['id'], {}).get('analysis') and
+           analysis_record(task['items'][p['id']], p, task, root) is None for p in posts):
+        return None
+    return value
 
 
 def download_error(item, post, root):
@@ -599,7 +680,7 @@ def summary(task, root=ROOT):
     posts = records(task, root)
     counts = {'discovered': len(posts), 'videos': sum(p['kind'] == 'video' for p in posts),
               'image_posts': sum(p['kind'] == 'images' for p in posts), 'downloaded': 0,
-              'speech_ready': 0, 'visual_reviewed': 0, 'analyzed': 0, 'fully_analyzed': 0, 'failed_items': 0}
+              'speech_ready': 0, 'visual_reviewed': 0, 'review_reused': 0, 'analyzed': 0, 'fully_analyzed': 0, 'failed_items': 0}
     delivery_gaps = []
     for post in posts:
         item = task['items'].get(post['id'], {})
@@ -613,6 +694,7 @@ def summary(task, root=ROOT):
                                 if task['mode'] == 'download' else media_valid and bool(item.get('media', {}).get('complete')))
         counts['speech_ready'] += media_valid and item.get('speech', {}).get('status') in ('transcribed', 'reused', 'no_speech_detected', 'no_audio_stream', 'not_applicable')
         counts['visual_reviewed'] += analysis_valid and bool(analyzed.get('visual_complete'))
+        counts['review_reused'] += analysis_valid and bool(analyzed.get('review_reused'))
         counts['analyzed'] += analysis_valid and bool(analyzed.get('file'))
         counts['fully_analyzed'] += analysis_valid and bool(analyzed.get('complete'))
         counts['failed_items'] += bool(delivery_error or item.get('media_error') or item.get('speech_error') or item.get('analysis_error') or item.get('media', {}).get('errors'))
@@ -626,7 +708,7 @@ def summary(task, root=ROOT):
             'counts': counts, 'delivery_gaps': delivery_gaps, 'timing': task.get('timing', {}), 'workspace': str(root),
             'task_file': relative(root, task_path(task['id'], root)),
             'delivery_directory': relative(root, account_dir(task, root) / 'reports' / task['id']),
-            'capabilities': task['capabilities']}
+            'capabilities': task['capabilities'], 'offline': task.get('offline', False), 'snapshot': task.get('snapshot')}
 
 
 def export(task_id, *, root=ROOT):
@@ -684,6 +766,9 @@ def export(task_id, *, root=ROOT):
              '范围为本次会话可访问的公开作品。缺失字段保持为空；未到分页末尾不代表全量。', '',
              '## 处理进度', '', *[f'- {k}：{v}' for k, v in result['counts'].items()], '']
     aggregate = report_record(task, root)
+    if task.get('offline'):
+        lines += ['本报告使用原任务保存的素材范围，没有刷新主页或互动数据。',
+                  '原任务：' + task['snapshot']['source_task'], '分析问题：' + task['instruction'], '']
     if aggregate:
         for key, title in [('account', '账号分析'), ('content', '内容分析'), ('topics', '选题分析')]:
             lines += ['## ' + title, '', aggregate[key], '']

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import re
 import uuid
+import copy
+import difflib
 from pathlib import Path
 
 from .common import ROOT, config, digest, inside, now, read_json, relative, write_json
@@ -88,7 +90,7 @@ def originals(task: dict, root: Path) -> list[dict]:
 
 
 def register_content(task_id: str, files: list[Path], kind: str, root: Path = ROOT,
-                     *, evidence: str = "") -> dict:
+                     *, evidence: str = "", item_ids: list[str] | None = None) -> dict:
     task = workflow.load(task_id, root)
     originals(task, root)
     if not task.get("evidence"):
@@ -97,19 +99,41 @@ def register_content(task_id: str, files: list[Path], kind: str, root: Path = RO
         raise ValueError("内容类型无效")
     if kind == "spoken" and not (evidence.strip() or task.get("purpose") == "rewrite"):
         raise ValueError("口播改写需要用户实际指令，不能从纯转写自行扩展")
-    if len(files) != len(task["results"]):
+    selected = task['results']
+    if item_ids is not None:
+        if len(set(item_ids)) != len(item_ids) or not set(item_ids).issubset({x['id'] for x in selected}):
+            raise ValueError('指定条目必须唯一且属于本任务成功素材')
+        selected = [next(x for x in selected if x['id'] == ident) for ident in item_ids]
+    if len(files) != len(selected):
         raise ValueError("每条成功素材都需要一份独立正文，按 results 的顺序登记")
     sources = {inside(root, item[key]) for item in task["results"] for key in ("text", "markdown", "result")}
     entries = []
-    for item, file in zip(task["results"], files):
+    for item, file in zip(selected, files):
         path = inside(root, file)
         if path in sources or path.suffix.lower() not in {".txt", ".md"}:
             raise ValueError("校对与改写必须另存为文稿文件")
         if not path.read_text(encoding="utf-8-sig").strip():
             raise ValueError("正文为空")
-        entries.append({"id": item["id"], "file": relative(root, path), "sha256": digest(path)})
-    task[kind] = {"files": entries, "registered": now(), "evidence": evidence or task["evidence"]}
+        data = path.read_bytes()
+        checksum = __import__('hashlib').sha256(data).hexdigest()
+        snapshot = root / 'runs' / task_id / 'content-versions' / kind / item['id'] / (checksum + path.suffix.lower())
+        immutable(snapshot, data)
+        entries.append({"id": item["id"], "file": relative(root, path), "sha256": checksum,
+                        "snapshot_file": relative(root, snapshot),
+                        "source_basis": content_basis(task, item['id'], kind, root)})
+    old = task.get(kind)
+    if old:
+        task.setdefault('content_history', []).append({'kind': kind, **copy.deepcopy(old)})
+    merged = {x['id']: x for x in old.get('files', [])} if old and item_ids is not None else {}
+    merged.update({x['id']: x for x in entries})
+    task[kind] = {"files": [merged[x['id']] for x in task['results'] if x['id'] in merged],
+                  "registered": now(), "evidence": evidence or task["evidence"]}
     if kind == "review":
+        if old and old.get('files') != task[kind]['files']:
+            if task.get('analysis'):
+                task['analysis']['stale'] = True
+            if task.get('archive'):
+                task.setdefault('content_history', []).append({'kind': 'archive', **copy.deepcopy(task['archive'])})
         task.pop("archive", None)
     if task.get("failures"):
         task["status"] = "incomplete"
@@ -121,6 +145,47 @@ def register_content(task_id: str, files: list[Path], kind: str, root: Path = RO
     return task
 
 
+def content_basis(task, ident, kind, root):
+    item = next(x for x in task['results'] if x['id'] == ident)
+    basis = {'raw_sha256': digest(inside(root, item['text']))}
+    if kind == 'spoken':
+        reviewed = next((x for x in task.get('review', {}).get('files', []) if x['id'] == ident), None)
+        if reviewed:
+            actual = digest(inside(root, reviewed['file']))
+            if actual != reviewed['sha256']:
+                raise ValueError('校对工作稿已变化，请读取差异并重新登记后改写')
+            basis['review_sha256'] = actual
+    return basis
+
+
+def inspect_content(task, kind, root=ROOT):
+    """Describe edits without accepting, overwriting or silently regenerating them."""
+    entries = {x['id']: x for x in task.get(kind, {}).get('files', [])}
+    rows = []
+    for source in task.get('results', []):
+        entry = entries.get(source['id'])
+        row = {'id': source['id'], 'state': 'not_registered'}
+        if entry:
+            row.update(entry)
+            try:
+                file = inside(root, entry['file'])
+                row['state'] = 'missing' if not file.is_file() else ('valid' if digest(file) == entry['sha256'] else 'edited')
+                if row['state'] == 'edited' and entry.get('snapshot_file'):
+                    old = inside(root, entry['snapshot_file'])
+                    if digest(old) == entry['sha256']:
+                        diff = list(difflib.unified_diff(old.read_text(encoding='utf-8-sig').splitlines(),
+                            file.read_text(encoding='utf-8-sig').splitlines(), fromfile='registered', tofile='working'))
+                        row['diff'] = '\n'.join(diff[:80])[:6000]
+                        row['diff_truncated'] = len(diff) > 80 or len('\n'.join(diff[:80])) > 6000
+                if row['state'] == 'valid' and entry.get('source_basis') is not None:
+                    if entry['source_basis'] != content_basis(task, source['id'], kind, root):
+                        row['state'] = 'stale'
+            except (OSError, ValueError, UnicodeError) as exc:
+                row.update(state='unavailable', reason=str(exc))
+        rows.append(row)
+    return rows
+
+
 def checked_content(task: dict, kind: str, root: Path) -> list[dict]:
     entries = task.get(kind, {}).get("files", [])
     if [x["id"] for x in entries] != [x["id"] for x in task["results"]]:
@@ -128,6 +193,8 @@ def checked_content(task: dict, kind: str, root: Path) -> list[dict]:
     for item in entries:
         if digest(inside(root, item["file"])) != item["sha256"]:
             raise ValueError("已登记正文发生变化，请另存并重新登记当前版本")
+        if item.get('source_basis') is not None and item['source_basis'] != content_basis(task, item['id'], kind, root):
+            raise ValueError('正文依据已变化，请复核并重新登记受影响的版本')
     return entries
 
 
@@ -152,7 +219,10 @@ def deliver(task_id: str, kind: str = "review", root: Path = ROOT) -> dict:
     label = {"review": "校对逐字稿", "spoken": "口播稿", "raw": "机器原文"}[kind]
     file = root / "outputs" / "deliveries" / task_id / f"{label}-{checksum[:10]}.txt"
     immutable(file, data)
+    if task.get('delivery'):
+        task.setdefault('delivery_history', []).append(copy.deepcopy(task['delivery']))
     task["delivery"] = {"file": relative(root, file), "sha256": checksum, "kind": kind,
+                        "source_basis": [{'id': x['id'], 'sha256': digest(inside(root, x['file']))} for x in entries],
                         "count": len(entries), "numbers": indices, "at": now(),
                         "complete": not bool(task.get("failures"))}
     if task["purpose"] in {"transcribe", "rewrite"} and not task.get("failures"):

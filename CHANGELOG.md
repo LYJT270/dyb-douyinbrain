@@ -1,5 +1,18 @@
 # 更新记录
 
+## 1.5.0 - 2026-11-12
+
+- 增加只读恢复入口，按来源和目标查找旧任务、显示有效成果与下一步；恢复沿用保存范围，普通任务可使用 `run --saved-scope`。
+- 文稿支持逐条登记，保存独立版本快照并识别工作稿编辑、缺失和下游依据过期。
+- 普通和博主任务支持独立离线换角度分析，复用经过校验的材料及历史核对依据；本地补查不自动扩展为获取或付费识别。
+- Read-only recovery finds tasks by source and goal and reports valid results and next actions; `run --saved-scope` preserves ordinary task scope.
+- Item-level text registration preserves immutable revisions and detects edits, missing files, and stale dependencies.
+- Separate offline reanalysis tasks reuse verified material and historical review provenance without new acquisition or paid speech.
+
+本地验证通过 173 项行为测试、独立 Agent 纯文稿跨进程试用和 12 个旧任务只读兼容检查。版本与升级说明见 [1.5.0](docs/releases/v1.5.0.md)。
+
+Local validation passed 173 behavioral tests, an independent text-only cross-process Agent trial, and read-only recovery checks for 12 existing tasks. See [1.5.0](docs/releases/v1.5.0.md) for scope and upgrade details.
+
 ## 1.4.0 - 2026-11-07
 
 - 总入口与转写、分析、下载、改写、知识归档五个子 Skill 统一安装和更新，共用运行时、配置与任务数据；明确需求直接路由，组合需求通过共享工作记录衔接。

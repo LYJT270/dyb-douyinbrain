@@ -15,6 +15,11 @@ def add_parser(commands):
     plan.add_argument('--instruction', default=creator.DEFAULT_INSTRUCTION)
     plan.add_argument('--images', action='store_true', help='已检查当前 Agent 确实可看图')
     plan.add_argument('--parallel-vision', action='store_true', help='宿主实际支持独立视觉核对任务，最多领取两份')
+    offline = sub.add_parser('reanalyze', help='从已有任务建立独立离线分析；不刷新、不识别')
+    offline.add_argument('task')
+    offline.add_argument('--instruction', required=True)
+    offline.add_argument('--images', action='store_true', help='当前会话实际可看图，不继承旧会话能力')
+    offline.add_argument('--parallel-vision', action='store_true')
     for name in ('show', 'export'):
         sub.add_parser(name).add_argument('task')
     discovery = sub.add_parser('discover', help='刷新主页，逐页保存；未到底明确标为不完整')
@@ -50,6 +55,7 @@ def add_parser(commands):
     prepare.add_argument('--prepare-workers', type=int, default=2)
     prepare.add_argument('--reanalyze', action='store_true', help='重新分析已有材料，仍复用有效语音转写')
     prepare.add_argument('--item', action='append', help='只准备这些作品 ID；默认全部已就绪作品')
+    prepare.add_argument('--cached-only', action='store_true', help='仅用本地材料；不联网补封面')
     claim = sub.add_parser('claim', help='领取一份核对包；具备并发能力时最多两份在处理')
     claim.add_argument('task')
     claim.add_argument('--worker', required=True)
@@ -78,6 +84,8 @@ def dispatch(args):
     if name == 'plan':
         return creator.plan(args.source, mode=args.mode, quality=args.quality, instruction=args.instruction,
                             images=args.images, parallel_vision=args.parallel_vision)
+    if name == 'reanalyze':
+        return creator.reanalyze(args.task, args.instruction, images=args.images, parallel_vision=args.parallel_vision)
     if name == 'discover':
         return creator.discover(args.task, anonymous_only=args.anonymous_only, max_seconds=args.max_seconds)
     if name == 'preflight':
@@ -91,7 +99,7 @@ def dispatch(args):
     if name == 'prepare':
         return creator_review.prepare(args.task, max_frames=args.max_frames, strategy=args.strategy,
                                       batch_size=args.batch_size, prepare_workers=args.prepare_workers,
-                                      reanalyze=args.reanalyze, item_ids=args.item)
+                                      reanalyze=args.reanalyze, item_ids=args.item, cached_only=args.cached_only)
     if name == 'claim':
         return creator_review.claim(args.task, args.worker)
     if name == 'release':

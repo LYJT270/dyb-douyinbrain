@@ -11,9 +11,9 @@
 
 Douyin-brain is a Windows-local Agent Skill. Give an Agent a link, video, or existing transcript and tell it what you need. The bundled program acquires media in the background and uses your own Doubao Speech API for recognition; the Agent then proofreads or works with the text. Existing text can be processed without speech recognition.
 
-> This page includes an unreleased source candidate: the first-use introduction, full creator analysis, independent profile video downloads, and specialized suite entries. When installing an official Release, check the capabilities included in that version.
+> Version 1.5.0 adds task recovery, item-level text versions, and offline reanalysis to the unified suite and creator workflows. Check the selected Release when installing; see [release notes](docs/releases/v1.5.0.md) and [recovery and reuse](references/continuation.en.md).
 
-The candidate organizes Douyin-brain as one product. `dyb-douyinbrain` handles combined requests, setup, and maintenance; clear individual tasks can use `dyb-transcribe` (transcription and subtitles), `dyb-analyze` (post and creator analysis), `dyb-download` (profile videos), `dyb-write` (spoken-script rewriting), or `dyb-knowledge` (requested archiving and compilation). They share installation, configuration, workspace, and updates; automatic discovery depends on the host Agent. See [suite routing](references/suite.en.md).
+Douyin-brain is organized as one product. `dyb-douyinbrain` handles combined requests, setup, and maintenance; clear individual tasks can use `dyb-transcribe` (transcription and subtitles), `dyb-analyze` (post and creator analysis), `dyb-download` (profile videos), `dyb-write` (spoken-script rewriting), or `dyb-knowledge` (requested archiving and compilation). They share installation, configuration, workspace, and updates; automatic discovery depends on the host Agent. See [suite routing](references/suite.en.md).
 
 ![Workflow from input to delivery](assets/workflow.svg)
 
@@ -22,7 +22,7 @@ The candidate organizes Douyin-brain as one product. `dyb-douyinbrain` handles c
 - **Transcribe:** Douyin post links, shared text, creator profiles, link lists, and local audio or video.
 - **Preserve and proofread:** keep the machine transcript and existing source media unchanged, save a separate reviewed version, and read the whole text before checking names, numbers, and other uncertainties using the Agent's available image and audio tools.
 - **Analyze and adapt:** summarize, analyze, shorten, or write spoken scripts without overwriting the source.
-- **Analyze a creator or download their videos** (local source candidate, not yet publicly released): discover accessible videos and image posts page by page and analyze the transcript and actually viewed images over time. A separate mode downloads profile videos and captions without speech recognition. See the [creator workflow](references/creator.en.md).
+- **Analyze a creator or download their videos**: discover accessible videos and image posts page by page and analyze the transcript and actually viewed images over time. A separate mode downloads profile videos and captions without speech recognition. See the [creator workflow](references/creator.en.md).
 - **Deliver batches:** isolate failures, combine completed results in the original order with their original numbers, and report failed items. A resumed task first reuses valid successful caches. An Agent can directly proofread an existing SRT and save a copy with its timecodes; exporting SRT from recognition requires segment timing data.
 - **Archive on request:** follow the target knowledge base's rules only when you explicitly ask for archiving or compilation.
 
