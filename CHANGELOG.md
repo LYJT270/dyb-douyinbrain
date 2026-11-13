@@ -12,10 +12,12 @@
 - 修正 Windows 文件名大小写等价检查，阻止用规则或索引的大小写变体作为普通材料写入目标。
 - 用户再次明确恢复先前的个人资料答案时，纠正仍会生效并保留原始回答；紧邻的相同回答重试继续复用已有记录。
 - 旧入口备份和恢复使用整目录改名，避免 Windows 遇到占用文件时逐文件移动造成部分文件留在备份、部分留在原位。
+- 知识积累跳过过期分析；档案来源链接适配自定义位置；重复保存先确认当前索引可检索，缺失时进入修复或目标库写入续办。
 - Allow skipped profile questions, paused collection, and unsaved tasks. Enabling a vault does not import historical files, start schedules, or publish externally.
 - Protect library rules and indexes from ordinary material writes through case-equivalent Windows paths.
 - Apply explicit profile corrections even when they return to an earlier answer, preserving original answers while reusing immediate identical retries.
 - Rename legacy directories as a unit during backup and rollback, avoiding partial recursive moves when Windows encounters a locked file.
+- Skip stale analyses during collection, resolve provenance from custom profile locations, and verify current index coverage before reusing saved material; missing links enter local or target-writer recovery.
 
 首次跨品牌迁移由 Agent 运行承意 1.6.0 新安装器，旧版 `update --apply` 不支持跨产品标识直接升级。验证范围与迁移步骤见 [1.6.0 版本说明](docs/releases/v1.6.0.md)和[验收记录](docs/verification/v1.6.0.md)。
 

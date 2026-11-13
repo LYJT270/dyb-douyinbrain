@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 from unittest.mock import patch
+from urllib.parse import unquote
 
 from support import WorkspaceCase, SKILL_ROOT
 from douyin_text import content, personal_vault as kb, workflow
@@ -85,6 +87,33 @@ class PersonalVaultTests(WorkspaceCase):
         self.reply(background='游戏解说')
         kb.configure(self.root, resume='interview')
         self.assertEqual('goal', kb.status(self.root)['next_question']['field'])
+
+    def test_answer_provenance_resolves_from_custom_profile_location(self):
+        profile = self.parent / 'vault/profile.md'
+        self.enable(profile=profile)
+        result = self.reply()
+        self.assertEqual('saved', result['saving']['status'])
+        links = re.findall(r'\[用户回答\]\(([^)]+)\)', profile.read_text(encoding='utf-8'))
+        self.assertTrue(links)
+        for link in links:
+            original = (profile.parent / unquote(link)).resolve()
+            self.assertTrue(original.is_relative_to(self.vault / '素材/个人建档'))
+            self.assertIn('我做游戏解说', original.read_text(encoding='utf-8'))
+
+    def test_external_profile_provenance_resolves_after_target_writer_saves(self):
+        profile = self.parent / 'canonical profile.md'
+        self.enable(profile=profile)
+        result = self.reply()['saving']
+        self.assertEqual('awaiting_target_writer', result['status'])
+        for row in result['files']:
+            target = profile if row['target'] == '@profile' else self.vault / row['target']
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((self.root / row['snapshot']).read_bytes())
+        raw_target = result['files'][0]['target']
+        (self.vault / 'index.md').write_text(f'[原话]({raw_target})', encoding='utf-8')
+        self.assertEqual('saved', kb.apply(result['id'], self.root, external=True)['status'])
+        for link in re.findall(r'\[用户回答\]\(([^)]+)\)', profile.read_text(encoding='utf-8')):
+            self.assertEqual((self.vault / raw_target).resolve(), (profile.parent / unquote(link)).resolve())
 
     def test_explicit_correction_updates_profile_and_retains_history(self):
         self.enable()
@@ -227,6 +256,45 @@ class PersonalVaultTests(WorkspaceCase):
         self.assertNotEqual(first['id'], same_task['id'])
         self.assertEqual('pending', kb.apply(same_task['id'], self.root)['status'])
 
+    def test_resubmitting_saved_material_repairs_current_index_without_duplicates(self):
+        self.enable()
+        self.module()
+        manifest = self.manifest(body='游戏解说素材。')
+        first = kb.stage(manifest, self.root)
+        kb.apply(first['id'], self.root)
+        target = self.vault / first['files'][0]['target']
+        original = target.read_bytes()
+        for _ in range(2):
+            # The filename appearing as plain text is not a usable navigation link.
+            (self.vault / 'index.md').write_text('# 重建导航\n' + first['files'][0]['target'], encoding='utf-8')
+            self.assertEqual([], kb.context(self.root, query='解说')['matches'])
+            repeated = kb.stage(manifest, self.root)
+            self.assertEqual('pending', repeated['status'])
+            self.assertFalse(repeated.get('reused', False))
+            self.assertEqual(first['id'], repeated['id'])
+            self.assertEqual('saved', kb.apply(repeated['id'], self.root)['status'])
+            self.assertEqual(1, len(kb.context(self.root, query='解说')['matches']))
+            self.assertEqual(original, target.read_bytes())
+        self.assertEqual(1, len(kb.transactions(self.root)))
+
+    def test_existing_index_titles_angles_and_parentheses_remain_discoverable(self):
+        self.enable()
+        self.module()
+        cases = [
+            ('素材/测试/原文.md', '[原文](素材/测试/原文.md "材料说明")'),
+            ('素材/测试/原文(2).md', '[原文](素材/测试/原文(2).md)'),
+            ('素材/测试/原文 3.md', '[原文](<素材/测试/原文 3.md> "材料说明")'),
+        ]
+        for n, (target, link) in enumerate(cases):
+            with self.subTest(link=link):
+                manifest = self.manifest(task=f'index-{n}', target=target, body=f'游戏解说第{n}份。')
+                item = kb.stage(manifest, self.root)
+                kb.apply(item['id'], self.root)
+                (self.vault / 'index.md').write_text('# 现有导航\n' + link, encoding='utf-8')
+                self.assertEqual('saved', kb.apply(item['id'], self.root, external=True)['status'])
+                self.assertTrue(kb.stage(manifest, self.root)['reused'])
+                self.assertEqual(str(self.vault / target), kb.context(self.root, query='解说')['matches'][0]['file'])
+
     def test_preflight_conflict_leaves_every_destination_untouched(self):
         self.enable()
         self.module()
@@ -307,6 +375,15 @@ class PersonalVaultTests(WorkspaceCase):
         (self.vault / 'index.md').write_text('# 原有导航\n[材料](素材/测试/原文.md)', encoding='utf-8')
         self.assertEqual('saved', kb.apply(item['id'], self.root, external=True)['status'])
         self.assertFalse((self.vault / '个人').exists())
+        (self.vault / 'index.md').write_text('# 人工重建导航\n', encoding='utf-8')
+        repeated = kb.stage(self.manifest(), self.root)
+        self.assertEqual('pending', repeated['status'])
+        self.assertEqual('awaiting_target_writer', kb.apply(repeated['id'], self.root)['status'])
+        self.assertEqual('# 人工重建导航\n', (self.vault / 'index.md').read_text(encoding='utf-8'))
+        self.assertTrue(kb.status(self.root)['pending'])
+        (self.vault / 'index.md').write_text('# 人工重建导航\n[材料](素材/测试/原文.md)', encoding='utf-8')
+        self.assertEqual('saved', kb.apply(repeated['id'], self.root, external=True)['status'])
+        self.assertEqual([], kb.status(self.root)['pending'])
 
     def test_agent_hook_preserves_global_rules_and_respects_codex_override(self):
         codex_home = self.parent / 'codex-home'
@@ -371,3 +448,26 @@ class PersonalVaultTests(WorkspaceCase):
         outcome = kb.collect(task['id'], 'creative', self.root)
         self.assertEqual('saved', outcome['status'])
         self.assertEqual(['source', 'reviewed'], [row['role'] for row in outcome['files']])
+
+    def test_corrected_partial_task_excludes_explicitly_stale_analysis(self):
+        self.enable()
+        self.module()
+        task = self.recognize_run(self.task('analyze'))
+        task = self.register_review(task)
+        report = self.root / 'analysis.md'
+        report.write_text('基于旧校对稿的分析。', encoding='utf-8')
+        task = workflow.finish_analysis(task['id'], report, self.root)
+        # A saved coverage gap keeps the task incomplete after a corrected review.
+        task['failures'] = [{'id': 'unavailable-source', 'stage': 'acquisition', 'error': '素材不可用'}]
+        workflow.save(task, self.root)
+        corrected = self.root / 'corrected.txt'
+        corrected.write_text('更正后的实际内容。', encoding='utf-8')
+        task = content.register_content(task['id'], [corrected], 'review', self.root)
+        self.assertEqual('incomplete', task['status'])
+        self.assertTrue(task['analysis']['stale'])
+        outcome = kb.collect(task['id'], 'creative', self.root)
+        self.assertEqual('saved', outcome['status'])
+        self.assertEqual(['source', 'reviewed'], [row['role'] for row in outcome['files']])
+        self.assertTrue(outcome['coverage_gaps'])
+        reviewed = self.vault / outcome['files'][1]['target']
+        self.assertIn('更正后的实际内容', reviewed.read_text(encoding='utf-8'))

@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 import tempfile
 import time
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from .common import ROOT, SKILL_ROOT, artifact_lock, config, digest, inside, now, read_json, relative, write_json
 
@@ -63,6 +63,22 @@ def rules(vault):
 
 def file_hash(path):
     return digest(path) if path.is_file() else '-'
+
+
+def indexed_files(vault):
+    index = vault / 'index.md'
+    if not index.is_file():
+        return set()
+    found = set()
+    # Accept Markdown titles, angle-wrapped destinations and parentheses in names.
+    pattern = r'''\[[^\]]*\]\(\s*(?:<([^>]+)>|((?:[^\s()]|\([^()]*\))+))(?:\s+(?:"[^"]*"|'[^']*'|\([^()]*\)))?\s*\)'''
+    for angled, plain in re.findall(pattern, index.read_text(encoding='utf-8-sig')):
+        link = angled or plain
+        try:
+            found.add(inside(vault, unquote(link.split('#')[0])))
+        except ValueError:
+            continue
+    return found
 
 
 def target_path(value, target):
@@ -289,7 +305,12 @@ def stage(manifest, root=ROOT, *, profile=False):
     for old in transactions(root):
         if old['signature'] == signature and old['status'] == 'saved' and old['module'] == module:
             if all(file_hash(target_path(value, r['target'])) == r['sha256'] for r in old['files']):
-                return {**old, 'reused': True}
+                indexed = indexed_files(Path(value['vault_root']))
+                if all(target_path(value, r['target']) in indexed for r in old['files'] if r['target'] != '@profile'):
+                    return {**old, 'reused': True}
+                old.update(status='pending', error='索引缺少已保存资料，等待修复并读回')
+                write_json(home(root) / 'transactions' / old['id'] / 'transaction.json', old)
+                return old
     ident = fingerprint([value['id'], module, rows])[:24]
     folder = home(root) / 'transactions' / ident
     existing = folder / 'transaction.json'
@@ -373,8 +394,8 @@ def apply(ident, root=ROOT, *, external=False):
                 index_hash = write_index(vault, catalog)
             else:
                 index = vault / 'index.md'
-                body = index.read_text(encoding='utf-8-sig')
-                if any(row['target'] not in body and quote(row['target'], safe='/') not in body
+                indexed = indexed_files(vault)
+                if any(target_path(value, row['target']) not in indexed
                        for row in record['files'] if row['target'] != '@profile'):
                     raise ValueError('索引尚未包含实际收录文件')
                 index_hash = digest(index)
@@ -455,7 +476,11 @@ def answer(payload, root=ROOT):
         changed_fields = fields if managed else value['fields']
         for key in changed_fields:
             fact = value['fields'][key]
-            source = f"../../素材/个人建档/{fact['answer']}.md"
+            answer_path = Path(value['vault_root']) / '素材/个人建档' / (fact['answer'] + '.md')
+            try:
+                source = quote(Path(os.path.relpath(answer_path, profile_path.parent)).as_posix(), safe='/')
+            except ValueError:  # Different Windows drives cannot have a relative link.
+                source = answer_path.as_uri()
             begin, end = f'<!-- cy-profile:{key}:start -->', f'<!-- cy-profile:{key}:end -->'
             block = '\n'.join([begin, '## ' + LABELS[key], '', fact['value'], '',
                                f"来源：[用户回答]({source})；记录于 {fact['at']}。", end])
@@ -512,12 +537,9 @@ def context(root=ROOT, *, query='', task=None):
     terms = query.casefold().split()
     matches = []
     # Read only indexed Markdown files, never recursively crawl an existing library.
-    index = vault / 'index.md'
-    if index.is_file() and terms:
-        from urllib.parse import unquote
-        for link in re.findall(r'\[[^\]]*\]\(([^)]+)\)', index.read_text(encoding='utf-8-sig')):
+    if terms:
+        for candidate in sorted(indexed_files(vault)):
             try:
-                candidate = inside(vault, unquote(link.strip('<>').split('#')[0]))
                 if candidate.suffix.lower() != '.md' or not candidate.is_file():
                     continue
                 text = candidate.read_text(encoding='utf-8-sig')
@@ -558,7 +580,7 @@ def collect(task_id, module, root=ROOT):
         item = task.get(kind)
         if not item or (kind == 'delivery' and item.get('kind') != 'spoken'):
             continue
-        if kind == 'analysis' and task.get('status') not in {'completed', 'incomplete', 'published'}:
+        if kind == 'analysis' and (item.get('stale') or task.get('status') not in {'completed', 'incomplete', 'published'}):
             continue  # A newer review can leave the previous analysis awaiting revision.
         source = inside(root, item['file'])
         if digest(source) != item['sha256']:
