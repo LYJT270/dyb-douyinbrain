@@ -62,6 +62,8 @@ class NamingCompatibilityTests(WorkspaceCase):
 
 @unittest.skipUnless(os.name == 'nt', 'Windows rename migration')
 class BrandInstallTests(unittest.TestCase):
+    maxDiff = None
+
     # Share setup helpers without inheriting and rerunning the whole suite.
     setUp = suite_tests.SuiteInstallTests.setUp
     source = suite_tests.SuiteInstallTests.source

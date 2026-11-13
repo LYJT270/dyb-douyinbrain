@@ -142,7 +142,9 @@ function Register-CyLegacyAliases([hashtable]$Plan, [string]$Target, [string]$St
                 }
             }
         } else {
-            Move-Item -LiteralPath $path -Destination $backup
+            # Rename the directory as one unit. Move-Item can recursively move some
+            # files before failing on a locked file, leaving no complete original.
+            [IO.Directory]::Move($path, $backup)
         }
         try {
             New-Item -ItemType Directory -Path (Join-Path $path 'scripts') -Force | Out-Null
@@ -173,8 +175,8 @@ function Register-CyLegacyAliases([hashtable]$Plan, [string]$Target, [string]$St
                     if (Test-Path -LiteralPath $saved -PathType Leaf) { Copy-Item -LiteralPath $saved -Destination $original }
                 }
             } else {
-                if (Test-Path -LiteralPath $path) { Move-Item -LiteralPath $path -Destination $failed }
-                Move-Item -LiteralPath $backup -Destination $path
+                if (Test-Path -LiteralPath $path) { [IO.Directory]::Move($path, $failed) }
+                [IO.Directory]::Move($backup, $path)
             }
             throw
         }
@@ -203,8 +205,8 @@ function Undo-CyMigration([hashtable]$Plan) {
                 if (Test-Path -LiteralPath $saved) { Copy-Item -LiteralPath $saved -Destination $original }
             }
         } else {
-            if (Test-Path -LiteralPath $path) { Move-Item -LiteralPath $path -Destination $failed }
-            Move-Item -LiteralPath $backup -Destination $path
+            if (Test-Path -LiteralPath $path) { [IO.Directory]::Move($path, $failed) }
+            [IO.Directory]::Move($backup, $path)
         }
     }
     if ($Plan.backup) {
