@@ -1,11 +1,30 @@
 {
   "schema": 1,
-  "product": "dyb-douyinbrain",
+  "product": "cy-charmyee",
   "members": [
-    {"name": "dyb-transcribe", "source": "skills/dyb-transcribe"},
-    {"name": "dyb-analyze", "source": "skills/dyb-analyze"},
-    {"name": "dyb-download", "source": "skills/dyb-download"},
-    {"name": "dyb-write", "source": "skills/dyb-write"},
-    {"name": "dyb-knowledge", "source": "skills/dyb-knowledge"}
+    {
+      "name": "cy-transcribe",
+      "source": "skills/cy-transcribe"
+    },
+    {
+      "name": "cy-analyze",
+      "source": "skills/cy-analyze"
+    },
+    {
+      "name": "cy-download",
+      "source": "skills/cy-download"
+    },
+    {
+      "name": "cy-write",
+      "source": "skills/cy-write"
+    },
+    {
+      "name": "cy-knowledge",
+      "source": "skills/cy-knowledge"
+    },
+    {
+      "name": "cy-vault",
+      "source": "skills/cy-vault"
+    }
   ]
 }

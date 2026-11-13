@@ -1,0 +1,4 @@
+interface:
+  display_name: "CY-analyze · 内容与博主分析"
+  short_description: "分析抖音作品、博主主页或本地音视频；显式调用也可分析已有文稿。"
+  default_prompt: "使用 $cy-analyze 分析我提供的抖音内容。"

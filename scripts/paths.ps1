@@ -2,12 +2,23 @@
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 
-function Get-DybStateRoot {
-    if ($env:DYB_STATE_DIR) { return [IO.Path]::GetFullPath($env:DYB_STATE_DIR) }
-    return Join-Path $env:LOCALAPPDATA 'dyb-douyinbrain'
+# Old callers may still provide DYB_*; explicit CY_* always wins.
+foreach ($suffix in @('STATE_DIR','WORKSPACE','UPDATE_CHECK','UPDATE_ID','SUITE_TRANSACTION')) {
+    $current = [Environment]::GetEnvironmentVariable('CY_' + $suffix)
+    $legacy = [Environment]::GetEnvironmentVariable('DYB_' + $suffix)
+    if (-not $current -and $legacy) { [Environment]::SetEnvironmentVariable('CY_' + $suffix, $legacy) }
 }
 
-function Get-DybSkillsRoot([string]$AgentName, [string]$Override) {
+function Get-CyStateRoot {
+    if ($env:CY_STATE_DIR) { return [IO.Path]::GetFullPath($env:CY_STATE_DIR) }
+    $current = Join-Path $env:LOCALAPPDATA 'cy-charmyee'
+    $legacy = Join-Path $env:LOCALAPPDATA 'dyb-douyinbrain'
+    if (-not (Test-Path -LiteralPath (Join-Path $current 'settings.json')) -and
+        (Test-Path -LiteralPath (Join-Path $legacy 'settings.json'))) { return $legacy }
+    return $current
+}
+
+function Get-CySkillsRoot([string]$AgentName, [string]$Override) {
     if ($Override) { return [IO.Path]::GetFullPath($Override) }
     if ($AgentName -eq 'custom') { throw 'Custom Agent requires -SkillsRoot <directory>.' }
     if ($AgentName -eq 'claude') { return Join-Path $env:USERPROFILE '.claude\skills' }
@@ -17,7 +28,7 @@ function Get-DybSkillsRoot([string]$AgentName, [string]$Override) {
     return Join-Path $env:USERPROFILE '.agents\skills'
 }
 
-function Register-DybClaudeLink([string]$Target, [string]$AgentName, [bool]$CustomRoot) {
+function Register-CyClaudeLink([string]$Target, [string]$AgentName, [bool]$CustomRoot) {
     # A custom root is explicit and must not register into unrelated user directories.
     if ($CustomRoot -or $AgentName -notin @('auto','all')) { return $null }
     $claudeHome = Join-Path $env:USERPROFILE '.claude'

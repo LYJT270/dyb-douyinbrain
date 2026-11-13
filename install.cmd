@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
-title Douyin-brain Setup
-echo Douyin-brain - preparing your local Agent skill
+title CY-CharmYee Setup
+echo CY-CharmYee - preparing your local Agent skill
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install.ps1" %*
 set "dyb_exit=%errorlevel%"
 echo.

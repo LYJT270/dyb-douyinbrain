@@ -20,7 +20,7 @@ $dyRun = '<skill>\scripts\invoke.ps1'
 & $dyRun welcome --acknowledge    # 英文可另加 --lang en
 ```
 
-`welcome` 返回 `message`、8 组 `capabilities`、`readiness` 和 `onboarding`，不读取用户意图，也不调用语音识别。功能目录来自 `assets/capabilities.json`；Agent 按[首次介绍](onboarding.md)在聊天中说明全部组别，再结合用户当前目标继续。安装前入口不可用时先读指南介绍，安装后再核对状态。
+`welcome` 返回 `message`、9 组 `capabilities`、`readiness` 和 `onboarding`，不读取用户意图，也不调用语音识别。功能目录来自 `assets/capabilities.json`；Agent 按[首次介绍](onboarding.md)在聊天中说明全部组别，再结合用户当前目标继续。安装前入口不可用时先读指南介绍，安装后再核对状态。
 
 `onboarding` 包含 `revision`、`due`、`guide_file`、`welcome_command`、相对工作目录的 `state_file` 和 `meaning`。`doctor`／`init` 也回传该状态；安装结果包含 `onboarding_reference`、`welcome_command`、`onboarding` 和 `next_action_for_agent`（某些提前失败阶段可能尚未取得本机状态）。仅在已于聊天实际展示介绍后执行 `--acknowledge`，它向工作目录 `.local/onboarding.json` 写入 `presented_revision`、时间和语言，表示介绍已展示，不代表理解、验收或授权；其他命令不会自动登记。
 
@@ -58,7 +58,7 @@ $dyRun = '<skill>\scripts\invoke.ps1'
 & $dyRun update --apply       # 用户明确要求更新本 Skill 时
 ```
 
-`check-update` 返回当前版本、最新版本及 `should_notify`。只有该值为 true 时主动提示；每个新版最多每天提醒一次。`unavailable` 表示暂时不能联网检查，继续原任务；设置 `DYB_UPDATE_CHECK=0` 可以停用日常检查，显式升级仍会联网查询。仅访问公开 GitHub Release 元数据，不发送文稿、Key 或登录状态。
+`check-update` 返回当前版本、最新版本及 `should_notify`。只有该值为 true 时主动提示；每个新版最多每天提醒一次。`unavailable` 表示暂时不能联网检查，继续原任务；设置 `CY_UPDATE_CHECK=0` 可以停用日常检查，显式升级仍会联网查询。仅访问公开 GitHub Release 元数据，不发送文稿、Key 或登录状态。
 
 `update --apply` 重新查询最新正式版，下载官方 ZIP 及 SHA-256 文件，校验压缩包和内部完整清单，调用安装器更新当前 Skill 的真实目录。继续使用原本机设置和工作目录；旧程序留备份，Key、素材和任务数据不属于替换范围。安装失败且已生成有效旧程序备份时恢复旧程序，失败版本留在 `.trash`；依赖安装若中断，按实际错误修复后再试。查看 `update-result.json` 和返回的日志路径，不自行清空数据或强行删除更新锁。
 

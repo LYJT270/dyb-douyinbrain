@@ -1,5 +1,24 @@
 # 更新记录
 
+## 1.6.0 - 2026-11-13
+
+- 品牌统一为「承意 CY-CharmYee」，口号「承你所想，会你所意」。主 Skill ID 为 `cy-charmyee`，子入口统一为 `cy-*`；展示名称使用 `CY-*`。
+- 安装、更新、打包、配置窗口和中英文文档同步改名；旧 `dyb-*` / `douyin-brain` 入口可迁移为兼容入口，保留工作区、凭据、任务和个人知识库启用状态。
+- Rebranded as CY-CharmYee, with canonical `cy-*` entrypoints, reversible legacy aliases and preserved workspace registrations. The first cross-brand migration uses the new installer; old published assets remain unchanged.
+- 新增 cy-vault：可选个人知识库、可续接对话建档、创作与学习模块、明确作用范围与主动积累。
+- 本地写入带不可变快照、冲突检查、索引读回与失败续办；已有库沿用现行入口和权威档案。
+- Added optional personal-vault setup, resumable profiles, creative/learning modules, scoped collection and verified recovery. Existing library rules and canonical profiles are preserved.
+- 可跳过建档问题、暂停积累或将本次任务设为不保存；开启知识库不自动收录历史文件，也不启用定时任务或外部发布。
+- 修正 Windows 文件名大小写等价检查，阻止用规则或索引的大小写变体作为普通材料写入目标。
+- 用户再次明确恢复先前的个人资料答案时，纠正仍会生效并保留原始回答；紧邻的相同回答重试继续复用已有记录。
+- Allow skipped profile questions, paused collection, and unsaved tasks. Enabling a vault does not import historical files, start schedules, or publish externally.
+- Protect library rules and indexes from ordinary material writes through case-equivalent Windows paths.
+- Apply explicit profile corrections even when they return to an earlier answer, preserving original answers while reusing immediate identical retries.
+
+首次跨品牌迁移由 Agent 运行承意 1.6.0 新安装器，旧版 `update --apply` 不支持跨产品标识直接升级。验证范围与迁移步骤见 [1.6.0 版本说明](docs/releases/v1.6.0.md)和[验收记录](docs/verification/v1.6.0.md)。
+
+The first cross-brand migration runs the CY-CharmYee 1.6.0 installer; the legacy `update --apply` cannot cross product identities directly. See the [release notes](docs/releases/v1.6.0.md) and [verification record](docs/verification/v1.6.0.md) for migration steps and evidence boundaries.
+
 ## 1.5.0 - 2026-11-12
 
 - 增加只读恢复入口，按来源和目标查找旧任务、显示有效成果与下一步；恢复沿用保存范围，普通任务可使用 `run --saved-scope`。

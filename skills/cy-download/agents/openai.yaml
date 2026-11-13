@@ -1,0 +1,4 @@
+interface:
+  display_name: "CY-download · 主页视频下载"
+  short_description: "批量下载抖音主页可访问的视频及发布文案，记录实际画质与下载状态。"
+  default_prompt: "使用 $cy-download 下载我提供的抖音主页视频。"

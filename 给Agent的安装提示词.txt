@@ -1,1 +1,1 @@
-请安装并启用抖音脑 dyb-douyinbrain。读取安装包根目录的 INSTALL.md，根据当前 Agent 选择发现目录，运行 scripts/install.ps1 自动准备环境；豆包账号登录、开通服务和填写 API Key 由我本人处理，不要在聊天索要密钥。抖音登录不是安装前置；只有我明确要求登录、验证或界面排障时才打开可见的抖音浏览器。安装完成后核对实际入口和环境，告诉我下一步。仓库：https://github.com/ScarfaceAI/dyb-douyinbrain
+请安装并启用承意 CY-CharmYee（Skill ID：cy-charmyee）。先核对源码或安装包 bundle.json 的 name 为 cy-charmyee，不要把旧 dyb 包当作改名新版。读取根目录的 INSTALL.md，根据当前 Agent 选择发现目录，运行 scripts/install.ps1 自动准备环境；豆包账号登录、开通服务和填写 API Key 由我本人处理，不要在聊天索要密钥。抖音登录不是安装前置；只有我明确要求登录、验证或界面排障时才打开可见的抖音浏览器。安装完成后核对实际入口和环境，告诉我下一步。仓库：https://github.com/ScarfaceAI/CY-CharmYee

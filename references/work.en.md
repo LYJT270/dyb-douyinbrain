@@ -11,8 +11,8 @@ For a new record, prepare a plan JSON in the workspace with the user's actual wo
   "request": "<actual user request>",
   "inputs": ["<actual link or file path>"],
   "steps": [
-    {"id": "extract", "skill": "dyb-transcribe", "instruction": "<step goal>", "depends_on": [], "accept_partial": false},
-    {"id": "rewrite", "skill": "dyb-write", "instruction": "<step goal>", "depends_on": ["extract"], "accept_partial": false}
+    {"id": "extract", "skill": "cy-transcribe", "instruction": "<step goal>", "depends_on": [], "accept_partial": false},
+    {"id": "rewrite", "skill": "cy-write", "instruction": "<step goal>", "depends_on": ["extract"], "accept_partial": false}
   ]
 }
 ```

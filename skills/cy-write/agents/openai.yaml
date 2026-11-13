@@ -1,0 +1,4 @@
+interface:
+  display_name: "CY-write · 口播改写"
+  short_description: "将抖音或音视频文稿改成口播稿，保留原文；显式调用可处理已有文字。"
+  default_prompt: "使用 $cy-write 改写我提供的口播稿。"

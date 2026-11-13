@@ -23,8 +23,8 @@ if ($sourceItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
 . (Join-Path $PSScriptRoot 'migration.ps1')
 . (Join-Path $PSScriptRoot 'suite-install.ps1')
 . (Join-Path $PSScriptRoot 'suite-guard.ps1')
-if ($StateDirectory) { $env:DYB_STATE_DIR = [IO.Path]::GetFullPath($StateDirectory) }
-$stateRoot = Get-DybStateRoot
+if ($StateDirectory) { $env:CY_STATE_DIR = [IO.Path]::GetFullPath($StateDirectory) }
+$stateRoot = Get-CyStateRoot
 $explicitSkillsRoot = [bool]$SkillsRoot
 $resultPath = Join-Path $stateRoot 'install-result.json'
 $stage = 'verify_package'
@@ -38,13 +38,13 @@ $suiteTransaction = $null
 $suiteVerified = $false
 $suiteRollback = $null
 $installationLock = $null
-$previousTransaction = $env:DYB_SUITE_TRANSACTION
+$previousTransaction = $env:CY_SUITE_TRANSACTION
 
 function Save-InstallResult([hashtable]$Value, [switch]$Quiet) {
     New-Item -ItemType Directory -Path $stateRoot -Force | Out-Null
     $Value.agent_target = $Agent
     $Value.updated_at = [DateTimeOffset]::Now.ToString('o')
-    if ($env:DYB_UPDATE_ID) { $Value.update_operation_id = $env:DYB_UPDATE_ID }
+    if ($env:CY_UPDATE_ID) { $Value.update_operation_id = $env:CY_UPDATE_ID }
     if ($targetRoot) {
         $Value.entrypoint = Join-Path $targetRoot 'scripts\invoke.ps1'
         $Value.skill_file = Join-Path $targetRoot 'SKILL.md'
@@ -96,17 +96,17 @@ try {
     $installationLock = [IO.File]::Open((Join-Path $stateRoot 'install.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
     $manifest = Get-Content -LiteralPath (Join-Path $sourceRoot 'bundle.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     foreach ($item in $manifest.file_sha256.PSObject.Properties) {
-        $source = Resolve-DybPayloadFile $sourceRoot $item.Name
+        $source = Resolve-CyPayloadFile $sourceRoot $item.Name
         if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or
             (Get-ContentSha256 $source) -ne $item.Value) {
             throw ('迁移包文件缺失或校验不一致：' + $item.Name)
         }
     }
-    $SkillsRoot = Get-DybSkillsRoot $Agent $SkillsRoot
+    $SkillsRoot = Get-CySkillsRoot $Agent $SkillsRoot
     $skillsPath = [IO.Path]::GetFullPath($SkillsRoot)
-    $targetRoot = [IO.Path]::GetFullPath((Join-Path $skillsPath 'dyb-douyinbrain'))
+    $targetRoot = [IO.Path]::GetFullPath((Join-Path $skillsPath 'cy-charmyee'))
     $stage = 'discover_existing_workspaces'
-    $migration = Get-DybMigrationPlan $stateRoot $skillsPath $Workspace $LegacyStateDirectory
+    $migration = Get-CyMigrationPlan $stateRoot $skillsPath $Workspace $LegacyStateDirectory
     if ($migration.choice_required) {
         Save-InstallResult @{status='needs_workspace_choice';stage=$stage;candidates=$migration.candidates;live_asr_requests=0}
         exit 2
@@ -125,7 +125,7 @@ try {
         }
         foreach ($note in $welcomeCatalog.notes.zh) { Write-Output $note }
     }
-    Backup-DybMigration $migration $stateRoot
+    Backup-CyMigration $migration $stateRoot
     if ((Split-Path -Parent $targetRoot) -ne $skillsPath.TrimEnd('\')) { throw '安装目标不在指定 skills 目录内。' }
     if (Test-Path -LiteralPath $targetRoot) {
         $targetItem = Get-Item -LiteralPath $targetRoot
@@ -134,18 +134,18 @@ try {
             if (-not $linkedTarget) { throw 'Skill link has no resolvable target.' }
             $linkedTarget = [IO.Path]::GetFullPath($linkedTarget)
             $linkedManifest = Join-Path $linkedTarget 'bundle.json'
-            if ((Split-Path -Leaf $linkedTarget) -ne 'dyb-douyinbrain' -or
+            if ((Split-Path -Leaf $linkedTarget) -ne 'cy-charmyee' -or
                 -not (Test-Path -LiteralPath $linkedManifest) -or
-                (Get-Content -LiteralPath $linkedManifest -Raw -Encoding UTF8 | ConvertFrom-Json).name -ne 'dyb-douyinbrain') {
-                throw 'The existing link does not point to a verified dyb-douyinbrain install; it was preserved.'
+                (Get-Content -LiteralPath $linkedManifest -Raw -Encoding UTF8 | ConvertFrom-Json).name -ne 'cy-charmyee') {
+                throw 'The existing link does not point to a verified cy-charmyee install; it was preserved.'
             }
             $targetRoot = $linkedTarget
             $skillsPath = Split-Path -Parent $targetRoot
         }
     }
     $stage = 'install_suite'
-    Start-DybSuiteInstall $sourceRoot $targetRoot $stateRoot $manifest
-    $null = Assert-DybSuiteAvailable $targetRoot
+    Start-CySuiteInstall $sourceRoot $targetRoot $stateRoot $manifest
+    $null = Assert-CySuiteAvailable $targetRoot
     $suiteVerified = $true
     $stage = 'configure_workspace'
     if (-not $DataDirectory) {
@@ -157,7 +157,7 @@ try {
         $settings = Join-Path $stateRoot 'settings.json'
         if (Test-Path -LiteralPath $settings) {
             $Workspace = (Get-Content -LiteralPath $settings -Raw -Encoding UTF8 | ConvertFrom-Json).workspace
-        } else { $Workspace = Join-Path $DataDirectory 'dyb-douyinbrain' }
+        } else { $Workspace = Join-Path $DataDirectory 'cy-charmyee' }
     }
     $Workspace = [IO.Path]::GetFullPath($Workspace)
     $cfg = $null
@@ -165,7 +165,7 @@ try {
         $cfg = Get-Content -LiteralPath (Join-Path $Workspace 'config.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     }
     if (-not $Vault -and -not $cfg.vault_root -and $CreateVault) {
-        $baseVault = Join-Path $DataDirectory 'dyb-douyinbrain-知识库'
+        $baseVault = Join-Path $DataDirectory 'cy-charmyee-知识库'
         $Vault = $baseVault
         $suffix = 2
         $knownLibrary = $false
@@ -194,11 +194,11 @@ try {
     $stage = 'environment_check'
     $doctor = Invoke-Brain $pythonPath $brainPath @('doctor') -AllowIncomplete
     if ($SkipDependencies) {
-        Register-DybLegacyAliases $migration $targetRoot $stateRoot
-        Complete-DybSuiteInstall $suiteTransaction
+        Register-CyLegacyAliases $migration $targetRoot $stateRoot
+        Complete-CySuiteInstall $suiteTransaction
         foreach ($entry in $suiteTransaction.entries) {
-            $link = Register-DybClaudeLink $entry.target $Agent $explicitSkillsRoot
-            if ($entry.name -eq 'dyb-douyinbrain') { $discoveryLink = $link }
+            $link = Register-CyClaudeLink $entry.target $Agent $explicitSkillsRoot
+            if ($entry.name -eq 'cy-charmyee') { $discoveryLink = $link }
         }
         Save-InstallResult @{status='dependencies_pending';stage=$stage;skill=$targetRoot;version=$manifest.version;workspace=$Workspace;vault_root=$doctor.vault_root;checks=$doctor.checks;test_mode=$true;backup=$backupPath;doubao_api_status='not_checked'}
         exit 0
@@ -225,18 +225,22 @@ try {
     }
     $status = if ($doctor.doubao_credentials_present) { 'installed' } else { 'awaiting_api' }
     $stage = 'legacy_aliases'
-    Register-DybLegacyAliases $migration $targetRoot $stateRoot
-    Complete-DybSuiteInstall $suiteTransaction
+    Register-CyLegacyAliases $migration $targetRoot $stateRoot
+    Complete-CySuiteInstall $suiteTransaction
     foreach ($entry in $suiteTransaction.entries) {
-        $link = Register-DybClaudeLink $entry.target $Agent $explicitSkillsRoot
-        if ($entry.name -eq 'dyb-douyinbrain') { $discoveryLink = $link }
+        $link = Register-CyClaudeLink $entry.target $Agent $explicitSkillsRoot
+        if ($entry.name -eq 'cy-charmyee') { $discoveryLink = $link }
     }
     Save-InstallResult @{status=$status;stage='complete';skill=$targetRoot;version=$manifest.version;workspace=$Workspace;vault_root=$doctor.vault_root;checks=$doctor.checks;credentials_present=$doctor.doubao_credentials_present;doubao_api_status=$doctor.doubao_api_status;backup=$backupPath;live_asr_requests=0}
 } catch {
     $failureMessage = $_.Exception.Message
+    if ($suiteTransaction -and $suiteTransaction.status -ne 'committed') {
+        try { Undo-CyMigration $migration }
+        catch { $failureMessage += '; migration rollback: ' + $_.Exception.Message }
+    }
     if ($suiteTransaction -and $suiteTransaction.status -notin @('committed','rolled_back')) {
         try {
-            $suiteTransaction = Undo-DybSuiteInstall $suiteTransaction
+            $suiteTransaction = Undo-CySuiteInstall $suiteTransaction
             $suiteRollback = @{status=$suiteTransaction.status;entries=$suiteTransaction.entries}
         } catch { $suiteRollback = @{status='failed';error=$_.Exception.Message} }
     }
@@ -244,5 +248,5 @@ try {
     exit 1
 } finally {
     if ($installationLock) { $installationLock.Dispose() }
-    $env:DYB_SUITE_TRANSACTION = $previousTransaction
+    $env:CY_SUITE_TRANSACTION = $previousTransaction
 }

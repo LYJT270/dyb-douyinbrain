@@ -8,7 +8,7 @@ try {
         [IO.Path]::GetFullPath($transaction.journal) -ne [IO.Path]::GetFullPath($TransactionPath)) { throw '恢复事务与指定安装位置不一致。' }
     $lock = [IO.File]::Open((Join-Path (Split-Path -Parent $TransactionPath) 'install.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
     try {
-        $restored = Undo-DybSuiteInstall $transaction -IncludeCommitted
+        $restored = Undo-CySuiteInstall $transaction -IncludeCommitted
         @{status=$restored.status;entries=$restored.entries} | ConvertTo-Json -Depth 8
     } finally { $lock.Dispose() }
 } catch {

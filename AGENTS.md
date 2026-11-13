@@ -1,6 +1,6 @@
 # 公开源码维护说明
 
-本仓库是 Windows Agent Skill「抖音脑 Douyin-brain」。任务入口为 `SKILL.md`，实现、文档与许可的事实来源见 `SOURCE_OF_TRUTH.md`。
+本仓库是 Windows Agent Skill「承意 CY-CharmYee」。任务入口为 `SKILL.md`，实现、文档与许可的事实来源见 `SOURCE_OF_TRUTH.md`。
 
 - 修改现有流程前先读相关实现、测试和被引用的 `references/`；保留用户数据、凭据和已有未提交改动。
 - 安装适配和跨 Agent 的真实会话验证分别报告；`doctor` 只反映本地检查，不能代替实际下载、登录或语音识别。

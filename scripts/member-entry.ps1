@@ -7,7 +7,7 @@ try {
     $sharedRoot = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
     $MemberRoot = [IO.Path]::GetFullPath($MemberRoot)
     $name = Split-Path -Leaf $MemberRoot
-    $manifest = Assert-DybSuiteAvailable $sharedRoot
+    $manifest = Assert-CySuiteAvailable $sharedRoot
     $member = @($manifest.skill_suite.members | Where-Object { $_.name -eq $name })
     if ($member.Count -ne 1) { throw '子 Skill 不属于此套件。' }
     $sourcePath = [IO.Path]::GetFullPath((Join-Path $sharedRoot $member[0].source))
@@ -17,17 +17,17 @@ try {
     foreach ($item in $manifest.file_sha256.PSObject.Properties) {
         if ($item.Name.StartsWith($prefix)) {
             $file = Join-Path $MemberRoot $item.Name.Substring($prefix.Length)
-            if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (Get-DybFileHash $file) -ne $item.Value) { throw '子 Skill 文件与整套版本不一致，请重新安装。' }
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (Get-CyFileHash $file) -ne $item.Value) { throw '子 Skill 文件与整套版本不一致，请重新安装。' }
         }
     }
     if ($BrainArgs.Count -eq 1 -and $BrainArgs[0] -eq 'guide') {
         $references = @{}
-        foreach ($topic in @('suite','onboarding','runtime','content','creator','knowledge','work','continuation')) {
+        foreach ($topic in @('suite','onboarding','runtime','content','creator','knowledge','work','continuation','personal-vault')) {
             $references[$topic] = Join-Path $sharedRoot ('references/' + $topic + '.md')
         }
         $result = @{status='ready';skill=$name;version=$manifest.version;shared_root=$sharedRoot;
                     entrypoint=(Join-Path $sharedRoot 'scripts/invoke.ps1');references=$references;layout=$layout}
-        $settingsPath = Join-Path (Get-DybStateRoot) 'settings.json'
+        $settingsPath = Join-Path (Get-CyStateRoot) 'settings.json'
         if (Test-Path -LiteralPath $settingsPath) { $result.workspace = (Get-Content -LiteralPath $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json).workspace }
         $result | ConvertTo-Json -Depth 5
         exit 0

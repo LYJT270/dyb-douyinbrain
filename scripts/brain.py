@@ -7,28 +7,30 @@ import os
 import sys
 from pathlib import Path
 
+from runtime.douyin_text.identity import env_value, state_root
+
 
 def main() -> int:
     selector = argparse.ArgumentParser(add_help=False)
     selector.add_argument("--workspace", type=Path)
     args, remaining = selector.parse_known_args()
-    workspace = args.workspace or os.environ.get("DYB_WORKSPACE")
+    workspace = args.workspace or env_value("WORKSPACE")
     if not workspace:
-        settings = Path(os.environ.get("DYB_STATE_DIR") or (Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local"))) / "dyb-douyinbrain")) / "settings.json"
+        settings = state_root() / "settings.json"
         if settings.exists():
             workspace = json.loads(settings.read_text(encoding="utf-8-sig"))["workspace"]
-    workspace = Path(workspace or Path.home() / "Documents/dyb-douyinbrain").expanduser().resolve()
+    workspace = Path(workspace or Path.home() / "Documents/cy-charmyee").expanduser().resolve()
     resource = Path(__file__).resolve().parent / "runtime"
     skill_root = resource.parent.parent
     if workspace == skill_root or workspace.is_relative_to(skill_root) or skill_root.is_relative_to(workspace):
         raise ValueError("工作目录应与 Skill 程序目录分开")
-    os.environ["DYB_WORKSPACE"] = str(workspace)
+    os.environ["CY_WORKSPACE"] = str(workspace)
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(workspace / ".local/browsers")
     links = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local"))) / "Microsoft/WinGet/Links"
     os.environ["PATH"] = str(links) + os.pathsep + os.environ.get("PATH", "")
     sys.dont_write_bytecode = True
     if remaining and remaining[0] in {"check-update", "update"}:
-        from updates import apply_update, check_updates, state_root
+        from updates import apply_update, check_updates
         update_parser = argparse.ArgumentParser(prog=remaining[0])
         update_parser.add_argument("--force", action="store_true")
         if remaining[0] == "update":
@@ -40,7 +42,7 @@ def main() -> int:
         print(json.dumps(result, ensure_ascii=False))
         return int(apply and result["status"] not in {"updated", "up_to_date"})
     if remaining and (remaining[0] in {"plan", "plan-text"} or remaining[:2] == ['creator', 'plan']):
-        from updates import notify_on_task, state_root
+        from updates import notify_on_task
         notify_on_task(skill_root, state_root())
     sys.path.insert(0, str(resource))
     from douyin_text.cli import main as run

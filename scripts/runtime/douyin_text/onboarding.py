@@ -30,6 +30,7 @@ def acknowledge(root=ROOT, *, language='zh'):
 
 
 def welcome(diagnostics, root=ROOT, *, language='zh'):
+    from .personal_vault import state as vault_state
     if language not in ('zh', 'en'):
         raise ValueError('language must be zh or en')
     data = catalog()
@@ -42,6 +43,10 @@ def welcome(diagnostics, root=ROOT, *, language='zh'):
     acquisition = all(checks.get(k, False) for k in ('ffmpeg', 'ffprobe', 'playwright', 'chromium'))
     audio = all(checks.get(k, False) for k in ('ffmpeg', 'ffprobe'))
     credentials = bool(diagnostics.get('doubao_credentials_present'))
+    personal = vault_state(root)
+    enabled = bool(personal and personal.get('vault_root') == diagnostics.get('vault_root'))
+    destination = ('enabled_scope_paused' if personal.get('collection_paused') else 'enabled_scope') if enabled else (
+        'configured_not_write_authorized' if diagnostics.get('vault_root') else 'choose_when_requested')
     return {'status': 'welcome', 'language': language, 'message': '\n'.join(message),
             'capabilities': entries, 'onboarding': status(root),
             'readiness': {'existing_text': 'available_to_agent',
@@ -49,7 +54,8 @@ def welcome(diagnostics, root=ROOT, *, language='zh'):
                 'new_speech': 'ready_for_authorized_trial' if audio and credentials else
                               'needs_dependencies' if not audio else 'needs_speech_credentials',
                 'speech_scope': 'local_media; Douyin media also needs download_environment',
-                'knowledge_destination': 'configured_not_write_authorized' if diagnostics.get('vault_root') else 'choose_when_requested',
+                'knowledge_destination': destination,
+                'knowledge_modules': personal.get('modules', []) if enabled else [],
                 'visual_review': 'check_current_agent_image_tools',
                 'cloud_access': 'not_tested', 'douyin_login': 'not_tested_not_a_setup_requirement'},
             'next_action_for_agent': 'Present this introduction and relevant readiness in the conversation, then acknowledge; route the current request using the guide. Do not make the user learn commands.',

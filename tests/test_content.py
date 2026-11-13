@@ -11,7 +11,7 @@ from douyin_text import asr, content, setup, workflow
 from douyin_text.common import read_json, write_json
 from support import WorkspaceCase
 
-START, END = "<!-- dyb-douyinbrain:execution:start -->", "<!-- dyb-douyinbrain:execution:end -->"
+START, END = "<!-- cy-charmyee:execution:start -->", "<!-- cy-charmyee:execution:end -->"
 
 
 class ContentTests(WorkspaceCase):
@@ -126,7 +126,7 @@ class SetupTests(WorkspaceCase):
         self.assertEqual(1, body.count(START))
         self.assertEqual(1, body.count(END))
         self.assertIn(f"工作目录：`{self.root.resolve().as_posix()}`", body)
-        settings = read_json(appdata / "dyb-douyinbrain" / "settings.json")
+        settings = read_json(appdata / "cy-charmyee" / "settings.json")
         self.assertEqual(str(self.root.resolve()), settings["workspace"])
         self.assertEqual(str(rules.resolve()), settings["workspace_entry"])
 

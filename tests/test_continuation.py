@@ -173,8 +173,8 @@ class ContinuationTests(WorkspaceCase):
 
     def test_work_distinguishes_edited_and_missing_files_and_continues_independent_step(self):
         task = work.create({'request': '分别处理', 'inputs': [], 'steps': [
-            {'id': 'a', 'skill': 'dyb-write', 'instruction': '第一条'},
-            {'id': 'b', 'skill': 'dyb-write', 'instruction': '第二条'}]}, self.root)
+            {'id': 'a', 'skill': 'cy-write', 'instruction': '第一条'},
+            {'id': 'b', 'skill': 'cy-write', 'instruction': '第二条'}]}, self.root)
         file = self.root / 'one.txt'
         file.write_text('初稿', encoding='utf-8')
         work.record(task['id'], 'a', {'status': 'completed', 'summary': '第一条完成', 'coverage': '一条',
@@ -193,7 +193,7 @@ class ContinuationTests(WorkspaceCase):
         command = [sys.executable, '-B', '-X', 'utf8', str(SKILL_ROOT / 'scripts/brain.py'),
                    '--workspace', str(self.root), 'resume', '--task', task['id']]
         result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8',
-                                env={**os.environ, 'DYB_UPDATE_CHECK': '0'}, check=True)
+                                env={**os.environ, 'CY_UPDATE_CHECK': '0'}, check=True)
         data = json.loads(result.stdout)
         self.assertEqual('rewrite_items', data['recovery']['next_actions'][0]['action'])
         self.assertFalse(data['network_called'])
@@ -240,7 +240,7 @@ class ContinuationTests(WorkspaceCase):
     def test_missing_native_record_is_reported_without_losing_independent_work(self):
         native = self.text_task()
         combined = work.create({'request': '继续改稿', 'steps': [
-            {'id': 'write', 'skill': 'dyb-write', 'instruction': '改稿'}]}, self.root)
+            {'id': 'write', 'skill': 'cy-write', 'instruction': '改稿'}]}, self.root)
         work.link(combined['id'], 'write', native['id'], self.root)
         workflow.task_path(native['id'], self.root).unlink()
         result = continuation.resume(task_id=combined['id'], root=self.root)

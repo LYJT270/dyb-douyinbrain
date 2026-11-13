@@ -8,9 +8,9 @@ from douyin_text import work
 class WorkTests(WorkspaceCase):
     def plan(self, partial=False):
         return work.create({'request': '校对这篇稿子，再改成口播；另存选题分析。', 'inputs': ['已有文稿'], 'steps': [
-            {'id': 'review', 'skill': 'dyb-transcribe', 'instruction': '忠实校对'},
-            {'id': 'write', 'skill': 'dyb-write', 'instruction': '改成口播', 'depends_on': ['review'], 'accept_partial': partial},
-            {'id': 'analyze', 'skill': 'dyb-analyze', 'instruction': '独立分析选题'}]}, self.root)
+            {'id': 'review', 'skill': 'cy-transcribe', 'instruction': '忠实校对'},
+            {'id': 'write', 'skill': 'cy-write', 'instruction': '改成口播', 'depends_on': ['review'], 'accept_partial': partial},
+            {'id': 'analyze', 'skill': 'cy-analyze', 'instruction': '独立分析选题'}]}, self.root)
 
     def outcome(self, name, text, status='completed'):
         file = self.root / 'outputs' / (name + '.txt')
@@ -93,7 +93,7 @@ class WorkTests(WorkspaceCase):
 
     def test_no_false_completion_missing_task_or_dependency_cycle(self):
         with self.assertRaisesRegex(ValueError, '前面'):
-            work.create({'request': '测试', 'steps': [{'id': 'a', 'skill': 'dyb-write', 'instruction': '改稿', 'depends_on': ['a']}]}, self.root)
+            work.create({'request': '测试', 'steps': [{'id': 'a', 'skill': 'cy-write', 'instruction': '改稿', 'depends_on': ['a']}]}, self.root)
         combined = self.plan()
         with self.assertRaises(FileNotFoundError):
             work.link(combined['id'], 'review', 'dy-' + 'b' * 16, self.root)

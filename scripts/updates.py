@@ -12,17 +12,13 @@ import uuid
 
 from release_assets import download_release, extract_verified, latest_release, version_tuple
 from suite_manifest import check_installed
+from runtime.douyin_text.identity import env_value, state_root
 
 CACHE_SECONDS = 24 * 60 * 60
 
 
 class InstallationStillRunning(ValueError):
     """Keep the lock and installation in place until the process has stopped."""
-
-
-def state_root() -> Path:
-    return Path(os.environ.get("DYB_STATE_DIR") or
-                Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local"))) / "dyb-douyinbrain").resolve()
 
 
 def save_json(path: Path, value: dict) -> None:
@@ -43,7 +39,7 @@ def read_cache(path: Path) -> dict:
 def check_updates(skill: Path, state: Path, *, force: bool = False, notify: bool = False) -> dict:
     current = (skill / "VERSION").read_text().strip()
     version_tuple(current)
-    if not force and os.environ.get("DYB_UPDATE_CHECK") == "0":
+    if not force and env_value("UPDATE_CHECK") == "0":
         return {"status": "disabled", "current_version": current, "should_notify": False}
     path = state / "update-cache.json"
     cache = read_cache(path)
@@ -67,7 +63,7 @@ def check_updates(skill: Path, state: Path, *, force: bool = False, notify: bool
             save_json(path, cache)
         return {"status": "update_available" if available else "up_to_date", "current_version": current,
                 "latest_version": latest, "release_url": info["url"], "should_notify": should_notify,
-                "cached": fresh and not force, "update_instruction": "@dyb-douyinbrain 更新"}
+                "cached": fresh and not force, "update_instruction": "@cy-charmyee 更新"}
     except (ValueError, KeyError, TypeError, OSError, URLError) as exc:
         try:
             cache.update(checked_at=now, error=str(exc))
@@ -84,8 +80,8 @@ def notify_on_task(skill: Path, state: Path) -> None:
     except (ValueError, OSError):
         return
     if result.get("should_notify"):
-        print(f"抖音脑有新版本 {result['latest_version']}（当前 {result['current_version']}）。"
-              "需要更新时请说：@dyb-douyinbrain 更新。当前任务可以继续。", file=sys.stderr)
+        print(f"承意有新版本 {result['latest_version']}（当前 {result['current_version']}）。"
+              "需要更新时请说：@cy-charmyee 更新。当前任务可以继续。", file=sys.stderr)
 
 
 def run_installer(source: Path, skill: Path, state: Path, workspace: Path, log: Path) -> dict:
@@ -95,7 +91,7 @@ def run_installer(source: Path, skill: Path, state: Path, workspace: Path, log: 
                str(source / "scripts/install.ps1"), "-Agent", "custom", "-SkillsRoot", str(skill.parent),
                "-StateDirectory", str(state), "-Workspace", str(workspace),
                "-PythonExecutable", sys.executable, "-NoApiWindow"]
-    environment = {**os.environ, "DYB_UPDATE_CHECK": "0", "DYB_STATE_DIR": str(state), "DYB_UPDATE_ID": operation}
+    environment = {**os.environ, "CY_UPDATE_CHECK": "0", "CY_STATE_DIR": str(state), "CY_UPDATE_ID": operation}
     timed_out = False
     with log.open("w", encoding="utf-8") as stream:
         process = subprocess.Popen(command, stdout=stream, stderr=subprocess.STDOUT, env=environment)
@@ -133,10 +129,10 @@ def restore_program(skill: Path, backup: str | None, old_version: str) -> str | 
     trash = (skill.parent.parent / ".trash").resolve()
     if not backup.exists() and (skill / "VERSION").is_file() and (skill / "VERSION").read_text().strip() == old_version:
         return None  # The installer stopped before the recorded atomic directory move.
-    if backup.parent != trash or not backup.is_dir() or skill.name != "dyb-douyinbrain":
+    if backup.parent != trash or not backup.is_dir() or skill.name != "cy-charmyee":
         raise ValueError("Unexpected rollback path; preserved the installation for inspection")
     manifest = json.loads((backup / "bundle.json").read_text(encoding="utf-8-sig"))
-    if manifest.get("name") != "dyb-douyinbrain" or manifest.get("version") != old_version:
+    if manifest.get("name") != "cy-charmyee" or manifest.get("version") != old_version:
         raise ValueError("Rollback backup does not match the previous installation")
     failed = (trash / (time.strftime("%Y-%m-%d") + "_failed-update_" + uuid.uuid4().hex[:8])).resolve()
     # Validate absolute source and destination before Windows directory moves.
@@ -168,7 +164,7 @@ def apply_update(skill: Path, state: Path, workspace: Path) -> dict:
     skill, state, workspace = skill.resolve(), state.resolve(), workspace.resolve()
     if (skill / ".git").exists():
         raise ValueError("This is a source checkout. Follow docs/RELEASING.md; do not overwrite it with an installation ZIP.")
-    if skill.name != "dyb-douyinbrain" or workspace == skill or workspace.is_relative_to(skill) or skill.is_relative_to(workspace):
+    if skill.name != "cy-charmyee" or workspace == skill or workspace.is_relative_to(skill) or skill.is_relative_to(workspace):
         raise ValueError("The installed Skill and its workspace must be separate")
     settings = json.loads((state / "settings.json").read_text(encoding="utf-8-sig"))
     if Path(settings["workspace"]).resolve() != workspace:

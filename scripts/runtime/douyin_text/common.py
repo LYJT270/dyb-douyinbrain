@@ -10,9 +10,11 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from .identity import env_value
+
 RESOURCE_ROOT = Path(__file__).resolve().parents[1]
 SKILL_ROOT = RESOURCE_ROOT.parents[1]
-ROOT = Path(os.environ.get("DYB_WORKSPACE", str(Path.home() / "Documents" / "dyb-douyinbrain"))).expanduser().resolve()
+ROOT = Path(env_value("WORKSPACE") or Path.home() / "Documents" / "cy-charmyee").expanduser().resolve()
 SHANGHAI = timezone(timedelta(hours=8))
 
 

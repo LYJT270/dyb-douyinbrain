@@ -72,38 +72,40 @@ If `main` contains documentation changes made after a release, reverify that rel
 
 ## Upgrading an existing installation
 
-### First transition from 1.0.0 or 1.0.1
+### First migration from the old brand to CY-CharmYee 1.6.0
 
-The older versions do not have the update feature. First manually install the latest stable release; the updater was first introduced in 1.1.0:
+Every old-brand `dyb-douyinbrain` or `douyin-brain` installation must run the new installer once to switch to CY-CharmYee. Versions 1.0.0 and 1.0.1 have no updater. Versions 1.1.0–1.5.0 have one, but it pins the old product ID, ZIP name, and archive root, so their legacy `update --apply` cannot directly install the 1.6.0 new-brand package.
 
-1. Download and extract the installation ZIP from the [latest Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest).
-2. Run the new installer as the same Windows user. For a default installation, double-click `install.cmd`. If the original installation used `-Agent`, `-SkillsRoot`, `-Workspace`, or `-Vault`, use the same arguments or ask your Agent to do so. This lets the installer reuse the registered workspace and local settings; preserve existing data and configuration.
+1. Download the CY-CharmYee ZIP and `.zip.sha256` from the [official Releases](https://github.com/ScarfaceAI/CY-CharmYee/releases/latest), verify them, and extract the package. The 1.6.0 file is `cy-charmyee-windows-v1.6.0.zip`, and `bundle.json` identifies `cy-charmyee`.
+2. Run the installer from that new package as the same Windows user. For a default installation, double-click `install.cmd`. Retain custom Agent, SkillsRoot, or StateDirectory arguments, or have your Agent reuse them. A single registered workspace is reused automatically; multiple workspaces require one selection. Do not first delete old programs, configuration, or tasks.
 3. Run `doctor` using the `entrypoint` from the installation result, then check actual behavior with a low-impact task such as an existing text of your choice. A live speech test requires authorized material and may incur charges.
 4. Ask the Agent to reread the installed `SKILL.md`, or start a new conversation. Updating files does not automatically replace a previously loaded Skill in the current context.
 
-### Version 1.1.0 and later
+Old entries become compatibility forwarders, retaining tasks, credentials, and knowledge-base choices. See [brand migration](../references/brand-migration.en.md). Historical Release assets and tags keep their original identities.
 
-When a new task starts, the Skill checks GitHub for the latest stable release and notifies you if an update is available; it does not install automatically. Checks use a 24-hour cache. `plan` and `plan-text` notify at most once a day for the same new version. An offline or failed check does not block the original task; media downloads and cloud speech recognition still need their respective network access.
+### Already on CY-CharmYee 1.6.0 or later
 
-To update, say “`@dyb-douyinbrain 更新`” or “`$dyb-douyinbrain 更新`”; if your Agent does not support those forms, say “Use dyb-douyinbrain to update itself.” When explicitly requested, the program downloads the official Release ZIP, checks its external SHA-256 and complete internal manifest, and runs the installer using the installed Skill's real location, existing workspace, and local state. The installer preserves backups of local program changes and keeps existing data. Afterwards, run local `doctor` and an appropriate functional check, then ask the Agent to reread the new `SKILL.md` or start a new conversation.
+After the cross-brand migration above, later updates use CY-CharmYee's normal updater. When a new task starts, the Skill checks GitHub for the latest stable release and notifies you if an update is available; it does not install automatically. Checks use a 24-hour cache. `plan` and `plan-text` notify at most once a day for the same new version. An offline or failed check does not block the original task; media downloads and cloud speech recognition still need their respective network access.
+
+To update, say “`@cy-charmyee 更新`” or “`$cy-charmyee 更新`”; if your Agent does not support those forms, say “Use cy-charmyee to update itself.” When explicitly requested, the program downloads the official Release ZIP, checks its external SHA-256 and complete internal manifest, and runs the installer using the installed Skill's real location, existing workspace, and local state. The installer preserves backups of local program changes and keeps existing data. Afterwards, run local `doctor` and an appropriate functional check, then ask the Agent to reread the new `SKILL.md` or start a new conversation.
 
 For a manual check or diagnosis, use the installed Skill's entry point:
 
 ```powershell
-$dyRun = '<installed Skill>\scripts\invoke.ps1'
-& $dyRun check-update          # Uses the 24-hour cache
-& $dyRun check-update --force  # Forces a query
-& $dyRun update                # Checks only; does not install
-& $dyRun update --apply        # Only after the user explicitly requests an update
+$cyRun = '<installed cy-charmyee>\scripts\invoke.ps1'
+& $cyRun check-update          # Uses the 24-hour cache
+& $cyRun check-update --force  # Forces a query
+& $cyRun update                # Checks only; does not install
+& $cyRun update --apply        # Only after the user explicitly requests an update
 ```
 
-Set `$env:DYB_UPDATE_CHECK = '0'` to disable routine checks for the current PowerShell process and its children. Explicit `update --apply` remains available.
+Set `$env:CY_UPDATE_CHECK = '0'` to disable routine checks for the current PowerShell process and its children. Explicit `update --apply` remains available.
 
 The installer and `doctor` report local status only. `awaiting_api` indicates missing speech credentials and still allows existing-text work. See [INSTALL.md](../INSTALL.md) for configuration and arguments.
 
 ## Failures, fixes, and rollback
 
-- If a GitHub certificate-chain error prevents version 1.1.0 from checking or applying an update, download the new ZIP from the [latest Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest), follow the manual upgrade steps above using the same Windows user and original installation arguments, then check the local entry point.
+- If a GitHub certificate-chain error prevents version 1.1.0 from checking or applying an update, download the new ZIP from the [latest Release](https://github.com/ScarfaceAI/CY-CharmYee/releases/latest), follow the manual upgrade steps above using the same Windows user and original installation arguments, then check the local entry point.
 - Do not rewrite or delete official `v*` tags. Preserve published Releases and assets; do not overwrite an older tag or asset after a failure.
 - If tagging or publication is interrupted, inspect the Actions run and Release for that tag before choosing the next step.
 - For a defect in a published version, fix it in a new PR and publish a new patch. To remove a feature, use a revert PR and publish a new version.

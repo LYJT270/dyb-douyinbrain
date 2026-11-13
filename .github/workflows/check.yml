@@ -83,7 +83,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Only commits merged into main may be released' }
           python -B -X utf8 scripts/verify_release.py --archive (Get-ChildItem dist -Filter '*.zip').FullName
           if ($LASTEXITCODE -ne 0) { throw 'Package verification failed' }
-          gh release create $env:GITHUB_REF_NAME (Get-ChildItem dist -File).FullName --verify-tag --title "抖音脑 Douyin-brain $version" --notes-file "docs/releases/v$version.md"
+          gh release create $env:GITHUB_REF_NAME (Get-ChildItem dist -File).FullName --verify-tag --title "承意 CY-CharmYee $version" --notes-file "docs/releases/v$version.md"
           if ($LASTEXITCODE -ne 0) { throw 'Release failed; inspect existing release before retrying' }
       - name: Verify the public download without credentials
         run: python -B -X utf8 scripts/verify_release.py --download

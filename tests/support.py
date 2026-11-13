@@ -14,9 +14,9 @@ from unittest.mock import patch
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 # Code that silently falls back to the default workspace would write here; every test checks it never appears.
-DEFAULT_WORKSPACE = Path(tempfile.gettempdir()) / f"dyb-douyinbrain-tests-default-{uuid.uuid4().hex[:12]}"
-os.environ["DYB_WORKSPACE"] = str(DEFAULT_WORKSPACE)
-os.environ["DYB_UPDATE_CHECK"] = "0"  # Offline tests never query public releases.
+DEFAULT_WORKSPACE = Path(tempfile.gettempdir()) / f"cy-charmyee-tests-default-{uuid.uuid4().hex[:12]}"
+os.environ["CY_WORKSPACE"] = str(DEFAULT_WORKSPACE)
+os.environ["CY_UPDATE_CHECK"] = "0"  # Offline tests never query public releases.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SKILL_ROOT / "scripts" / "runtime"))
 sys.path.insert(0, str(SKILL_ROOT / "scripts"))

@@ -93,7 +93,7 @@ def main() -> None:
     body, toc = render(data.decode("utf-8"))
     page = '''<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>豆包语音配置：手把手教程 · dyb-douyinbrain</title>
+<title>豆包语音配置：手把手教程 · cy-charmyee</title>
 <style>
 :root{color-scheme:light;font-family:"Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;color:#203047;background:#f3f5f9}
 *{box-sizing:border-box}body{margin:0;line-height:1.85}.layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:28px;max-width:1150px;margin:32px auto;padding:0 24px}
@@ -104,7 +104,7 @@ p{margin:14px 0}ol,ul{padding-left:26px}li{padding-left:5px;margin:10px 0}a{colo
 .checkpoint{background:#eff8f2;border-left:4px solid #3b8961;padding:12px 16px;border-radius:4px;color:#24543d}.foot{margin-top:36px;border-top:1px solid #e3e8ef;padding-top:18px;font-size:12px;color:#64748b}
 @media(max-width:850px){.layout{display:block;margin:16px auto;padding:0 14px}aside{position:static;margin-bottom:16px;max-height:none}nav{grid-template-columns:repeat(2,minmax(0,1fr))}main{padding:26px 22px}h1{font-size:26px}}
 @media print{body{background:white}.layout{display:block;margin:0;padding:0}aside{display:none}main{border:0;padding:0}h2{break-after:avoid}a{color:inherit}.checkpoint{break-inside:avoid}}
-</style></head><body><div class="layout"><aside><div class="brand">dyb-douyinbrain</div><p class="caption">首次配置 · 离线教程<br>按阶段完成，每步都有检查点</p><nav>__TOC__</nav></aside><main>__BODY__<p class="foot">本页由 references/doubao-setup.md 生成。教程可离线阅读；打开控制台和官方文档需要联网。</p></main></div></body></html>'''
+</style></head><body><div class="layout"><aside><div class="brand">cy-charmyee</div><p class="caption">首次配置 · 离线教程<br>按阶段完成，每步都有检查点</p><nav>__TOC__</nav></aside><main>__BODY__<p class="foot">本页由 references/doubao-setup.md 生成。教程可离线阅读；打开控制台和官方文档需要联网。</p></main></div></body></html>'''
     page = page.replace("__TOC__", toc).replace("__BODY__", body)
     page += "\n<!-- source_sha256=" + hashlib.sha256(data).hexdigest() + " -->\n"
     target = root / "豆包配置教程.html"

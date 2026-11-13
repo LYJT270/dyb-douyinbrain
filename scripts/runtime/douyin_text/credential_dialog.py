@@ -12,7 +12,7 @@ def open_guide() -> bool:
     # Keep the guide usable when Windows has no working default HTML association.
     guide = Path(__file__).resolve().parents[3] / "references" / "doubao-setup.md"
     window = tk.Toplevel()
-    window.title("抖音脑 · 豆包语音配置教程")
+    window.title("承意 · 豆包语音配置教程")
     window.geometry("900x700")
     window.minsize(640, 400)
     ttk.Label(window, text="按当前进度完成配置；网址可点击，也可选中复制。",
@@ -46,7 +46,7 @@ def open_guide() -> bool:
 
 def ask(*, legacy: bool, validate) -> dict | None:
     window = tk.Tk()
-    window.title("抖音脑 Douyin-brain · 配置豆包语音")
+    window.title("承意 CY-CharmYee · 配置豆包语音")
     window.resizable(False, False)
     window.option_add("*Font", "{Microsoft YaHei UI} 10")
     frame = ttk.Frame(window, padding=20)

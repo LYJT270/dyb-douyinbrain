@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from . import asr, credentials, media, vault, workflow, content, setup, review
-from . import creator_cli, onboarding, work, continuation
+from . import creator_cli, onboarding, work, continuation, personal_vault_cli
 from .common import ROOT, RESOURCE_ROOT, SKILL_ROOT, config
 
 
@@ -41,11 +41,12 @@ def doctor() -> dict:
 
 
 def parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(description="dyb-douyinbrain：需求路由、原文留底、校对与口播、知识归档")
+    root = argparse.ArgumentParser(description="cy-charmyee：需求路由、原文留底、校对与口播、知识归档")
     sub = root.add_subparsers(dest="command", required=True)
     creator_cli.add_parser(sub)
     work.add_parser(sub)
     continuation.add_parser(sub)
+    personal_vault_cli.add_parser(sub)
     sub.add_parser("doctor")
     welcome = sub.add_parser('welcome', help='显示功能与首次使用引导，不调用语音识别')
     welcome.add_argument('--lang', choices=('zh', 'en'), default='zh')
@@ -132,7 +133,9 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        if args.command == 'resume':
+        if args.command == 'kb':
+            result = personal_vault_cli.dispatch(args)
+        elif args.command == 'resume':
             result = continuation.resume(task_id=args.task, inputs=args.input, purpose=args.purpose,
                                          instruction=args.instruction, request=args.request)
         elif args.command == 'work':
