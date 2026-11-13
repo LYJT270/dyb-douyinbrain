@@ -1,6 +1,6 @@
 # First introduction and natural-language routing
 
-> This guide describes current source capabilities. Availability of the new personal-vault feature depends on the installed version and actual task results.
+> This guide includes candidate personal-knowledge changes pending release. Their availability depends on the installed version and actual task results.
 
 ## Introduce the capabilities first
 
@@ -14,7 +14,7 @@ On first installation, first use, or an explicit request for a tour, explain the
 | Rewrite or shorten a spoken script | “Shorten this script but keep the opening hook.” | A separate rewrite with the source preserved. Existing text needs no speech setup; transcribing media first does. |
 | Organize and export | “Combine these into a TXT.” / “Proofread this SRT and keep its timecodes.” | Ordered text delivery; the Agent handles existing SRT directly and saves a separate file with timecodes preserved. Exporting SRT from recognition needs segment times. Existing text needs no speech setup. |
 | Archive on request | “Archive these originals and reviews and compile a topic page.” | Actual write status under the target knowledge base's rules. Archive or compile under explicit requests or enabled collection scope; speech needs depend on the source. |
-| Personal knowledge base | “Build a knowledge base and learn about my background and goals.” | A resumable profile, creative/learning modules, and opted-in retrieval and collection. No speech credentials required. |
+| Personal knowledge base | “Set up life, work, and learning knowledge; let's start with work.” | Choose where to begin; all three domains participate by default in a new library. Existing libraries keep their previous scope. Ask one question per interview turn and use relevant context in everyday tasks. No speech credentials required. |
 | Resume and reanalyze | “Continue the previous task and handle unfinished items.” | Reuse valid results; reanalysis does not automatically retranscribe, and a failed paid request is retried only on explicit instruction. |
 | Setup and maintenance | “Help me set up speech.” / “Check the environment.” / “Update CY-CharmYee.” | Setup guidance, readiness, migration or update results; speech setup is needed only when relevant. |
 
@@ -69,4 +69,4 @@ If results are unavailable, report the actual stage rather than inventing findin
 
 ## Optional personal knowledge
 
-Introduce cy-vault: “I can build a personal knowledge base through a brief conversation, then use it during creative and learning tasks and help accumulate useful results.” Let the user opt in without blocking current work. Follow [personal-vault](personal-vault.en.md) for scope selection, one-question-at-a-time profiles, modules, no-save tasks and failure recovery.
+Introduce cy-vault: “I can build life, work, and learning knowledge with you. You choose where we start, all three stay in scope, and I can use relevant material and preserve clear changes and outcomes during everyday work.” Let the user opt in without blocking the current task. Interviews continue one core question per turn; ordinary tasks remain focused on what the user asked. Follow [personal-vault](personal-vault.en.md) for scope selection, active collection, no-save tasks, existing-library migration and failure recovery; use [personal-domains](personal-domains.en.md) for question guidance.

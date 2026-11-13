@@ -41,8 +41,8 @@ def prepare(task: dict, root: Path = ROOT, *, pages: list[dict] | None = None,
         source = inside(root, page["file"])
         target = inside(vault, page["target"])
         relative = target.relative_to(vault.resolve()).as_posix()
-        if relative.split("/")[0] not in {"知识库", "个人"} or target.suffix != ".md":
-            raise ValueError("知识页目标应位于知识库或个人目录，且为 Markdown")
+        if relative.split("/")[0] not in {"生活", "工作", "学习", "知识库", "个人"} or target.suffix != ".md":
+            raise ValueError("知识页目标应位于生活、工作、学习或兼容目录，且为 Markdown")
         expected = page.get("expected_sha256")
         if target.is_file() and (not expected or digest(target) != expected):
             raise ValueError("更新已有知识页需要读取原页并提供匹配的 SHA-256")

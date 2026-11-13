@@ -10,6 +10,8 @@ import subprocess
 import ssl
 from types import SimpleNamespace
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
+import threading
 import unittest
 from unittest.mock import Mock, patch
 from urllib.error import URLError
@@ -76,16 +78,110 @@ class UpdateTests(unittest.TestCase):
         return {"status": "awaiting_api", "exit_code": 0, "local_entry_verified": True,
                 "version": "1.1.0", "skill": str(skill), "workspace": str(workspace), "backup": str(backup)}
 
-    def test_notice_is_cached_and_only_repeats_after_one_day(self):
+    def test_notice_is_once_per_chat_while_release_cache_is_shared(self):
         with patch.object(updates, "latest_release", return_value=self.info) as fetch, patch.object(updates.time, "time", return_value=100000):
-            first = updates.check_updates(self.skill, self.state, notify=True)
-            second = updates.check_updates(self.skill, self.state, notify=True)
+            first = updates.check_updates(self.skill, self.state, notify=True, session_id="chat-a")
+            second = updates.check_updates(self.skill, self.state, notify=True, session_id="chat-a")
+            other = updates.check_updates(self.skill, self.state, notify=True, session_id="chat-b")
             self.assertTrue(first["should_notify"])
             self.assertFalse(second["should_notify"])
+            self.assertTrue(other["should_notify"])
+            self.assertTrue(other["cached"])
             self.assertEqual(1, fetch.call_count)
         with patch.object(updates, "latest_release", return_value=self.info) as fetch, patch.object(updates.time, "time", return_value=200000):
-            self.assertTrue(updates.check_updates(self.skill, self.state, notify=True)["should_notify"])
+            self.assertFalse(updates.check_updates(self.skill, self.state, notify=True, session_id="chat-a")["should_notify"])
+            self.assertTrue(updates.check_updates(self.skill, self.state, notify=True, session_id="chat-c")["should_notify"])
             fetch.assert_called_once()
+
+    def test_unknown_chat_identity_leaves_deduplication_to_agent(self):
+        with patch.object(updates, "latest_release", return_value=self.info):
+            for _ in range(2):
+                result = updates.check_updates(self.skill, self.state, notify=True, session_id="")
+                self.assertTrue(result["should_notify"])
+                self.assertTrue(result["agent_deduplicate"])
+        self.assertNotIn("session_notices", updates.read_cache(self.state / "update-cache.json"))
+
+    def test_new_release_can_notify_again_in_same_chat_and_caught_up_install_stops_notice(self):
+        with patch.object(updates, "latest_release", return_value=self.info):
+            self.assertTrue(updates.check_updates(self.skill, self.state, notify=True, session_id="chat")["should_notify"])
+        newer = {**self.info, "version": "1.2.0"}
+        with patch.object(updates, "latest_release", return_value=newer):
+            self.assertTrue(updates.check_updates(self.skill, self.state, force=True, notify=True, session_id="chat")["should_notify"])
+            (self.skill / "VERSION").write_text("1.2.0\n")
+            result = updates.check_updates(self.skill, self.state, notify=True, session_id="new-chat")
+            self.assertEqual("up_to_date", result["status"])
+            self.assertFalse(result["should_notify"])
+
+    def test_confirmed_new_release_still_notifies_in_new_chat_when_refresh_is_offline(self):
+        with patch.object(updates, "latest_release", return_value=self.info), patch.object(updates.time, "time", return_value=100000):
+            updates.check_updates(self.skill, self.state, notify=True, session_id="old-chat")
+        with patch.object(updates, "latest_release", side_effect=URLError("offline")) as fetch, \
+                patch.object(updates.time, "time", return_value=200000):
+            result = updates.check_updates(self.skill, self.state, notify=True, session_id="new-chat")
+            repeat = updates.check_updates(self.skill, self.state, notify=True, session_id="new-chat")
+            self.assertTrue(result["should_notify"])
+            self.assertTrue(result["stale"])
+            self.assertIn("offline", result["check_error"])
+            self.assertFalse(repeat["should_notify"])
+            fetch.assert_called_once()
+
+    def test_host_thread_is_used_without_exposing_it_in_cache(self):
+        with patch.dict("os.environ", {"CY_SESSION_ID": "", "CODEX_THREAD_ID": "private-chat-id"}), \
+                patch.object(updates, "latest_release", return_value=self.info):
+            self.assertTrue(updates.check_updates(self.skill, self.state, notify=True)["should_notify"])
+            self.assertFalse(updates.check_updates(self.skill, self.state, notify=True)["should_notify"])
+        self.assertNotIn("private-chat-id", (self.state / "update-cache.json").read_text())
+
+    def test_parallel_chats_keep_both_notice_claims(self):
+        barrier = threading.Barrier(2)
+        def fetch():
+            barrier.wait(timeout=10)
+            return self.info
+        with patch.object(updates, "latest_release", side_effect=fetch):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(lambda chat: updates.check_updates(
+                    self.skill, self.state, force=True, notify=True, session_id=chat), ["chat-a", "chat-b"]))
+        self.assertTrue(all(row["should_notify"] for row in results))
+        for chat in ("chat-a", "chat-b"):
+            self.assertFalse(updates.check_updates(self.skill, self.state, notify=True, session_id=chat)["should_notify"])
+
+    def test_parallel_commands_in_one_chat_claim_only_one_notice(self):
+        barrier = threading.Barrier(2)
+        def fetch():
+            barrier.wait(timeout=10)
+            return self.info
+        with patch.object(updates, "latest_release", side_effect=fetch):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(lambda _: updates.check_updates(
+                    self.skill, self.state, force=True, notify=True, session_id="one-chat"), range(2)))
+        self.assertEqual(1, sum(row["should_notify"] for row in results))
+
+    def test_legacy_daily_notice_does_not_suppress_new_chat_or_read_only_check(self):
+        updates.save_json(self.state / "update-cache.json", {
+            "checked_at": 100000, "release": self.info,
+            "notified_version": "1.1.0", "notified_at": 100000})
+        with patch.object(updates.time, "time", return_value=100001), patch.object(updates, "latest_release") as fetch:
+            self.assertTrue(updates.check_updates(self.skill, self.state, session_id="new-chat")["should_notify"])
+            self.assertTrue(updates.check_updates(self.skill, self.state, notify=True, session_id="new-chat")["should_notify"])
+            self.assertFalse(updates.check_updates(self.skill, self.state, notify=True, session_id="new-chat")["should_notify"])
+            fetch.assert_not_called()
+
+    def test_read_only_notice_store_does_not_hide_confirmed_new_release(self):
+        updates.save_json(self.state / 'update-cache.json', {
+            'checked_at': updates.time.time(), 'release': self.info})
+        original_mkdir = Path.mkdir
+        def readonly_notices(path, *args, **kwargs):
+            if 'update-notices' in path.parts:
+                raise PermissionError('isolated read-only notification store')
+            return original_mkdir(path, *args, **kwargs)
+        with patch.object(Path, 'mkdir', new=readonly_notices), \
+                patch.object(updates, 'latest_release') as fetch:
+            result = updates.check_updates(self.skill, self.state, notify=True, session_id='restricted-chat')
+        self.assertEqual('update_available', result['status'])
+        self.assertTrue(result['should_notify'])
+        self.assertTrue(result['agent_deduplicate'])
+        self.assertIn('read-only', result['notice_cache_error'])
+        fetch.assert_not_called()
 
     def test_offline_check_and_corrupt_cache_do_not_interrupt_task_notice(self):
         updates.save_json(self.state / "update-cache.json", {"checked_at": "damaged cache"})

@@ -1,8 +1,8 @@
 {
-  "revision": 4,
+  "revision": 5,
   "intro": {
-    "zh": "我是承意 CY-CharmYee。承你所想，会你所意。你可以让我处理视频和文稿，也可以通过简短对话配置个人知识库；按当前任务使用即可。",
-    "en": "Meet CY-CharmYee: a personal knowledge and media creation assistant. Work with video and text, or build an optional personal knowledge base through a short conversation."
+    "zh": "我是承意 CY-CharmYee。承你所想，会你所意。你可以让我处理视频和文稿，也可以通过持续对话建立生活、工作、学习知识库；开启后在日常相关任务中主动结合你的资料提供帮助。",
+    "en": "Meet CY-CharmYee: a personal knowledge and media creation assistant. Work with video and text, or build a life, work and learning knowledge base through ongoing conversation, then use its context proactively in relevant everyday tasks."
   },
   "capabilities": [
     {
@@ -87,13 +87,13 @@
       "id": "personal-vault",
       "zh": {
         "title": "个人知识库与对话建档",
-        "example": "帮我建立个人知识库，先了解我的背景和目标",
-        "outcome": "可续接的基础档案、创作与学习模块；开启后主动查资料和积累成果，可暂停或指定本次不保存"
+        "example": "帮我建立知识库，从学习、工作或生活里我最关心的事开始聊",
+        "outcome": "逐轮深入、可暂停和续接的访谈；生活、工作、学习资料与成果按授权主动积累，日常任务先查相关资料，也可指定本次不保存"
       },
       "en": {
         "title": "Personal knowledge and conversational profiles",
-        "example": "Build a personal knowledge base and learn about my background and goals",
-        "outcome": "Resumable profiles and creative/learning modules; opted-in context retrieval and useful outcome collection, with pause and no-save controls"
+        "example": "Build my knowledge base, starting with the learning, work or life topic I care about most",
+        "outcome": "Ongoing, resumable interviews and opted-in life, work and learning context; proactive relevant retrieval and outcome collection, with pause and no-save controls"
       }
     },
     {

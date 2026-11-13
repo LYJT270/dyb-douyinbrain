@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 from pathlib import Path
 import subprocess
@@ -36,7 +37,19 @@ def read_cache(path: Path) -> dict:
         return {}
 
 
-def check_updates(skill: Path, state: Path, *, force: bool = False, notify: bool = False) -> dict:
+def session_identity(explicit: str | None = None) -> str | None:
+    """Use a real host/chat identity; never replace it with a global or daily ID."""
+    if explicit is not None:
+        return explicit.strip() or None
+    for name in ("CY_SESSION_ID", "CODEX_THREAD_ID", "CODEX_SESSION_ID"):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return None
+
+
+def check_updates(skill: Path, state: Path, *, force: bool = False, notify: bool = False,
+                  session_id: str | None = None) -> dict:
     current = (skill / "VERSION").read_text().strip()
     version_tuple(current)
     if not force and env_value("UPDATE_CHECK") == "0":
@@ -46,32 +59,62 @@ def check_updates(skill: Path, state: Path, *, force: bool = False, notify: bool
     now = time.time()
     checked_at = cache.get("checked_at", 0)
     fresh = isinstance(checked_at, (int, float)) and 0 <= now - checked_at < CACHE_SECONDS
-    try:
-        if force or not fresh:
+    cached = fresh and not force
+    if not cached:
+        try:
             info = latest_release()
-            cache.update(checked_at=now, release=info, error=None)
+            cache.update(checked_at=now, release_checked_at=now, release=info, error=None)
             save_json(path, cache)
-        elif cache.get("error"):
-            return {"status": "unavailable", "current_version": current, "should_notify": False, "cached": True}
+        except (ValueError, KeyError, TypeError, OSError, URLError) as exc:
+            cache.update(checked_at=now, error=str(exc))
+            try:
+                save_json(path, cache)
+            except OSError:
+                pass
+    try:
         info = cache["release"]
         latest = info["version"]
+        release_url = info["url"]
         available = version_tuple(latest) > version_tuple(current)
-        should_notify = available and (cache.get("notified_version") != latest or
-                                      now - cache.get("notified_at", 0) >= CACHE_SECONDS)
-        if notify and should_notify:
-            cache.update(notified_version=latest, notified_at=now)
-            save_json(path, cache)
+        identity = session_identity(session_id)
+        key = hashlib.sha256(identity.encode("utf-8")).hexdigest() if identity else None
+        version_pair = {"current": current, "latest": latest}
+        pair_key = hashlib.sha256((current + "\0" + latest).encode("utf-8")).hexdigest()
+        claim = state / "update-notices" / key / (pair_key + ".json") if key else None
+        notice_cache_error = None
+        should_notify = available
+        try:
+            should_notify = available and (claim is None or not claim.is_file())
+            if notify and should_notify and key:
+                # Independent exclusive claims prevent parallel chats losing one another's
+                # deduplication records during the shared metadata cache's read/modify/write.
+                claim.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    with claim.open("x", encoding="utf-8") as stream:
+                        json.dump(version_pair, stream)
+                except FileExistsError:
+                    should_notify = False
+        except OSError as exc:
+            # A known newer release stays useful when only the notice store is
+            # read-only. The Agent can still deduplicate inside this conversation.
+            key = None
+            should_notify = available
+            notice_cache_error = str(exc)
         return {"status": "update_available" if available else "up_to_date", "current_version": current,
-                "latest_version": latest, "release_url": info["url"], "should_notify": should_notify,
-                "cached": fresh and not force, "update_instruction": "@cy-charmyee 更新"}
+                "latest_version": latest, "release_url": release_url, "should_notify": should_notify,
+                "cached": cached, "stale": bool(cache.get("error")), "check_error": cache.get("error"),
+                "release_checked_at": cache.get("release_checked_at"),
+                "notification_scope": "session" if key else "agent_conversation",
+                "agent_deduplicate": key is None, "notice_cache_error": notice_cache_error,
+                "update_instruction": "@cy-charmyee 更新"}
     except (ValueError, KeyError, TypeError, OSError, URLError) as exc:
         try:
-            cache.update(checked_at=now, error=str(exc))
+            cache.update(checked_at=now, error=cache.get("error") or str(exc))
             save_json(path, cache)
         except OSError:
             pass
         return {"status": "unavailable", "current_version": current, "should_notify": False,
-                "error": str(exc), "continue_current_task": True}
+                "error": cache.get("error") or str(exc), "cached": cached, "continue_current_task": True}
 
 
 def notify_on_task(skill: Path, state: Path) -> None:
@@ -80,7 +123,8 @@ def notify_on_task(skill: Path, state: Path) -> None:
     except (ValueError, OSError):
         return
     if result.get("should_notify"):
-        print(f"承意有新版本 {result['latest_version']}（当前 {result['current_version']}）。"
+        prefix = "上次检查确认承意有新版本" if result.get('stale') else "承意有新版本"
+        print(f"{prefix} {result['latest_version']}（当前 {result['current_version']}）。"
               "需要更新时请说：@cy-charmyee 更新。当前任务可以继续。", file=sys.stderr)
 
 
