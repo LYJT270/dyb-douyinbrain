@@ -1,0 +1,4 @@
+interface:
+  display_name: "CY-knowledge · 知识归档"
+  short_description: "按明确要求或已开启范围归档材料、整理主题；建库与个人建档使用 CY-vault。"
+  default_prompt: "使用 $cy-knowledge 归档我指定的材料。"

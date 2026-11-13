@@ -26,25 +26,25 @@ import updates
 
 class UpdateTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix="dyb-update-")
+        self.temp = tempfile.TemporaryDirectory(prefix="cy-update-")
         self.addCleanup(self.temp.cleanup)
         self.base = Path(self.temp.name).resolve()
-        self.skill = self.base / "profile/skills/dyb-douyinbrain"
+        self.skill = self.base / "profile/skills/cy-charmyee"
         self.state = self.base / "state"
         self.workspace = self.base / "中文 workspace"
         self.skill.mkdir(parents=True)
         self.workspace.mkdir()
         (self.skill / "VERSION").write_text("1.0.1\n")
         (self.skill / "SKILL.md").write_text("My local customization", encoding="utf-8")
-        updates.save_json(self.skill / "bundle.json", {"name": "dyb-douyinbrain", "version": "1.0.1"})
+        updates.save_json(self.skill / "bundle.json", {"name": "cy-charmyee", "version": "1.0.1"})
         updates.save_json(self.state / "settings.json", {"workspace": str(self.workspace), "skill_root": str(self.skill)})
         (self.workspace / "config.json").write_text('{"user_setting": true}')
         (self.workspace / "fake-credential.dpapi").write_bytes(b"isolated dummy fixture, not a credential")
         (self.workspace / "saved-task.txt").write_text("Preserve this task.")
         self.preserved = {path.name: path.read_bytes() for path in self.workspace.iterdir()}
         self.info = {"version": "1.1.0", "tag": "v1.1.0", "url": release_assets.REPOSITORY_URL + "/releases/tag/v1.1.0",
-                     "zip_name": "dyb-douyinbrain-windows-v1.1.0.zip"}
-        self.environment = patch.dict("os.environ", {"DYB_UPDATE_CHECK": "1"})
+                     "zip_name": "cy-charmyee-windows-v1.1.0.zip"}
+        self.environment = patch.dict("os.environ", {"CY_UPDATE_CHECK": "1"})
         self.environment.start()
         self.addCleanup(self.environment.stop)
 
@@ -69,7 +69,7 @@ class UpdateTests(unittest.TestCase):
         return target
 
     def install_fixture(self, source, skill, state, workspace, log):
-        backup = skill.parent.parent / ".trash/2026-11-05_dyb-douyinbrain_test"
+        backup = skill.parent.parent / ".trash/2026-11-05_cy-charmyee_test"
         backup.parent.mkdir(parents=True)
         skill.rename(backup)
         shutil.copytree(source, skill)
@@ -97,7 +97,7 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(self.preserved, {p.name: p.read_bytes() for p in self.workspace.iterdir()})
 
     def test_explicit_force_overrides_disabled_daily_checks(self):
-        with patch.dict("os.environ", {"DYB_UPDATE_CHECK": "0"}), patch.object(updates, "latest_release", return_value=self.info) as fetch:
+        with patch.dict("os.environ", {"CY_UPDATE_CHECK": "0"}), patch.object(updates, "latest_release", return_value=self.info) as fetch:
             self.assertEqual("disabled", updates.check_updates(self.skill, self.state)["status"])
             fetch.assert_not_called()
             self.assertEqual("update_available", updates.check_updates(self.skill, self.state, force=True)["status"])
@@ -151,7 +151,7 @@ class UpdateTests(unittest.TestCase):
             source = Path(command[command.index("-File") + 1]).parents[1]
             progress = self.install_fixture(source, self.skill, self.state, self.workspace, None)
             progress.update(status="installing", local_entry_verified=False,
-                            update_operation_id=kwargs["env"]["DYB_UPDATE_ID"])
+                            update_operation_id=kwargs["env"]["CY_UPDATE_ID"])
             updates.save_json(self.state / "install-result.json", progress)
             return process
         with patch.object(updates, "latest_release", return_value=self.info), \
@@ -198,7 +198,7 @@ class UpdateTests(unittest.TestCase):
     def test_archive_rejects_unlisted_payload_even_when_outer_hash_matches(self):
         archive = self.make_archive()
         with zipfile.ZipFile(archive, "a") as payload:
-            payload.writestr("dyb-douyinbrain/extra.txt", "unexpected")
+            payload.writestr("cy-charmyee/extra.txt", "unexpected")
         archive.with_suffix(".zip.sha256").write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + "  " + archive.name)
         with self.assertRaisesRegex(ValueError, "extra or missing"):
             release_assets.verify_archive(archive)

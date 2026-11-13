@@ -1,8 +1,8 @@
 interface:
-  display_name: "抖音脑 Douyin-brain"
-  short_description: "处理抖音脑组合需求、配置与维护；单项任务可直接使用对应入口。"
+  display_name: "承意 · CY-CharmYee"
+  short_description: "个人知识库与媒体创作总入口，处理组合需求、配置、迁移、续办和维护。"
   icon_large: "./assets/icon.svg"
   brand_color: "#6EE7EF"
-  default_prompt: "使用 $dyb-douyinbrain 处理我提供的视频或文稿，并按本次要求交付结果。"
+  default_prompt: "使用 $cy-charmyee 按我的目标处理资料、视频或文稿，并结合已开启的个人知识库交付结果。"
 policy:
   allow_implicit_invocation: true

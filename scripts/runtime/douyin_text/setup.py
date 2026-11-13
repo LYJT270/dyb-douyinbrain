@@ -6,11 +6,11 @@ from pathlib import Path
 from .common import ROOT, RESOURCE_ROOT, SKILL_ROOT, config, now, write_json
 from .content import immutable
 from . import onboarding
+from .identity import state_root
 
 
 def settings_path() -> Path:
-    base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local")))
-    return Path(os.environ.get("DYB_STATE_DIR") or (base / "dyb-douyinbrain")) / "settings.json"
+    return state_root() / "settings.json"
 
 
 def workspace_entry(root: Path) -> Path:
@@ -19,21 +19,23 @@ def workspace_entry(root: Path) -> Path:
     saved = path.read_bytes() if path.exists() else b""
     body = saved.decode("utf-8-sig")
     newline = "\r\n" if "\r\n" in body else "\n"
-    start, end = "<!-- dyb-douyinbrain:execution:start -->", "<!-- dyb-douyinbrain:execution:end -->"
+    start, end = "<!-- cy-charmyee:execution:start -->", "<!-- cy-charmyee:execution:end -->"
     block = "\n".join([
-        start, "## dyb-douyinbrain 执行入口", "",
-        f"抖音链接、分享文案、本地音视频和文稿任务先读 [dyb-douyinbrain](<{(SKILL_ROOT / 'SKILL.md').as_posix()}>)，具体命令见同 Skill 的 references/runtime.md。",
+        start, "## cy-charmyee 执行入口", "",
+        f"抖音链接、分享文案、本地音视频和文稿任务先读 [cy-charmyee](<{(SKILL_ROOT / 'SKILL.md').as_posix()}>)，具体命令见同 Skill 的 references/runtime.md。",
         f"命令入口：`{(SKILL_ROOT / 'scripts/invoke.ps1').as_posix()}`；工作目录：`{root.as_posix()}`。",
         "媒体转写走免登录优先获取公开素材 → FFmpeg 提取音轨 → 豆包语音 API → 当前 Agent 按实际看图／听音能力校对交付；不使用网页转写、网页字幕或其他识别服务替代豆包。",
         "常规获取与抽帧在后台执行，不调用 Computer Use，不自行打开可见浏览器；失败仅报告实际原因。只有用户明确要求登录、验证或界面排障时才打开对应窗口。",
         "只有页面明确要求时提示登录或验证，不把缺少数据一律归为登录。Key 在本机窗口保存，禁止在聊天索要；已有文字稿直接处理，不调用识别。",
-        "只有素材或目标不清楚时问用途，明确任务直接执行；仅明确要求入库时写知识库。", end,
+        "只有素材或目标不清楚时问用途，明确任务直接执行；入库遵循明确指令或已通过 cy-vault 开启的自动积累范围；任务开始与交付时按 references/personal-vault.md 核对状态。", end,
     ]).replace("\n", newline)
-    if start in body:
-        begin = body.index(start)
-        if end not in body[begin:]:
+    legacy_start, legacy_end = "<!-- dyb-douyinbrain:execution:start -->", "<!-- dyb-douyinbrain:execution:end -->"
+    found_start, found_end = (start, end) if start in body else (legacy_start, legacy_end)
+    if found_start in body:
+        begin = body.index(found_start)
+        if found_end not in body[begin:]:
             raise ValueError("工作区执行入口标记不完整，保留现有规则供 Agent 核对")
-        finish = body.index(end, begin) + len(end)
+        finish = body.index(found_end, begin) + len(found_end)
         updated = body[:begin] + block + body[finish:]
     else:
         separator = "" if not body else newline if body.endswith("\n") else newline * 2
@@ -60,15 +62,12 @@ def initialize(root: Path = ROOT, *, vault: Path | None = None, create_vault: bo
         if create_vault:
             if vault.exists() and any(vault.iterdir()):
                 raise ValueError("目标目录已有内容，请按已有知识库配置，不覆盖其规则")
-            for directory in ["素材/文档", "素材/对标", "素材/创作/工作资料", "知识库"]:
+            for directory in ["素材", "知识库", "个人/档案"]:
                 (vault / directory).mkdir(parents=True, exist_ok=True)
-            docs = {
-                "AGENTS.md": "# 本地知识库约定\n\n本库保存用户明确要求收录的材料。先读 SCHEMA.md、SOURCE_OF_TRUTH.md 和 index.md。\n\n同批材料在素材目录成组保存原文留底和校对逐字稿，并互相链接；原文用于核查，日常检索优先校对稿。作者观点保留归属，不据此推断用户身份。\n\n主题知识页标注草稿并引用素材中的校对稿；原文可作为二级核查来源。收录后更新 index.md，按批次链接校对稿与原文，不重复拆散原文。\n\n已有文件更新前核对当前内容和版本，保留既有修改；新任务另存版本。只有本次明确要求入库才写入。普通文件写入不代表 Git 提交或用户已审。\n",
-                "SCHEMA.md": "# 文件结构\n\n- 素材/文档/<批次>/原文留底.md：原始识别或输入文稿，归档参考。\n- 素材/文档/<批次>/校对逐字稿.md：校对后的来源正文，互链同组原文。\n- 素材/对标/：用户明确指定的对标材料，同样成组归档。\n- 素材/创作/工作资料/：用户明确说明属于本人创作的材料。\n- 知识库/<主题>.md：整合后的知识草稿。\n\nMarkdown 使用 UTF-8。来源材料记录标题、作者或文件来源、原链接、版本时间和批内序号。知识页记录状态“草稿”和库内 sources 路径。来源与改写分开，数字替换不应用到原文。\n",
-                "SOURCE_OF_TRUTH.md": "# 真源\n\n用户本次指令决定用途和收录范围；本目录的 AGENTS.md、SCHEMA.md 决定组织方式。\n\n校对逐字稿是日常使用和知识编译的来源正文，原文留底是核查依据。两者保留独立版本与链接。主题页是可修订的草稿，不替代来源。\n\nindex.md 仅作导航，不能以索引存在推断材料已完整处理。当前库使用本地 Markdown 文件收录；写入后读回确认，Git 提交和用户审核单独报告。\n",
-                "index.md": "# 知识库索引\n\n## 主题知识\n\n尚未收录主题页。\n\n## 来源材料\n\n按批次登记校对稿，并附同组原文留底链接。\n"}
-            for name, text in docs.items():
-                immutable(vault / name, text.encode("utf-8"))
+            for template in (SKILL_ROOT / "assets/vault").glob("*.md"):
+                immutable(vault / template.name, template.read_bytes())
+            from .personal_vault import rules
+            write_json(vault / ".cy-vault.json", {"schema": 1, "product": "cy-vault", "rules": rules(vault)})
             created = True
         elif not vault.is_dir():
             raise ValueError("指定的知识库目录不存在；如需新建，明确使用 --create-vault")
@@ -85,6 +84,12 @@ def initialize(root: Path = ROOT, *, vault: Path | None = None, create_vault: bo
         write_json(settings_path(), {"workspace": str(root), "skill_root": str(SKILL_ROOT),
                                     "entrypoint": str(SKILL_ROOT / "scripts/invoke.ps1"),
                                     "workspace_entry": str(entry), "updated_at": now()})
+        from . import personal_vault
+        previous = personal_vault.state(root)
+        hook = previous.get('hook', {}).get('file')
+        if hook and Path(hook).is_file():
+            # Refresh an already opted-in hook without enabling any new scope.
+            personal_vault.install_hook(root, previous, Path(hook))
     return {"status": "configured", "workspace": str(root), "vault_root": cfg.get("vault_root"),
             "vault_created": created, "registered": register, "workspace_entry": str(entry),
             "credentials": "not_read_or_changed", "onboarding": onboarding.status(root)}

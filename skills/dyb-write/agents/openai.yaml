@@ -1,4 +1,0 @@
-interface:
-  display_name: "抖音脑 · 口播改稿"
-  short_description: "按要求改写或压缩抖音及音视频相关口播稿，保留原文。"
-  default_prompt: "使用 $dyb-write 改写我提供的口播稿。"

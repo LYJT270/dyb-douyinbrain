@@ -6,15 +6,15 @@
 
 使用仓库源码根目录或 Release 安装 ZIP，按 [INSTALL.md](../INSTALL.md) 运行 `scripts/install.ps1`；手动安装可双击 `install.cmd`。默认 `-Agent auto` 使用共享 `.agents/skills`，检测到已有 Claude 配置时尝试桥接，保留同名独立安装；也可选择受支持的 Agent 或通过 `-SkillsRoot` 指定 Skill 父目录。所有入口使用相同核心引擎。自动发现取决于 Agent 的实际配置；当前对话可直接读取安装结果中的 `skill_file`。
 
-本源码候选为一次安装的套件：源码和安装包中的子 Skill 位于 `skills/`，安装后与总入口各有同级目录；总入口不保留嵌套的子入口，以避免递归发现时重复显示，共用清单负责一致性校验。各入口共享配置、工作目录、介绍状态和更新。子入口先调用自身 `guide` 取得共享位置，不根据安装或源码目录猜路径。具体路由与失败处理见[套件规则](suite.md)，安装和真实宿主发现情况以实际结果为准。
+本源码为一次安装的套件：源码和安装包中的子 Skill 位于 `skills/`，安装后与总入口各有同级目录；总入口不保留嵌套的子入口，以避免递归发现时重复显示，共用清单负责一致性校验。各入口共享配置、工作目录、介绍状态和更新。子入口先调用自身 `guide` 取得共享位置，不根据安装或源码目录猜路径。具体路由与失败处理见[套件规则](suite.md)，安装和真实宿主发现情况以实际结果为准。
 
 自动安装默认准备完整 Python、虚拟环境、依赖、FFmpeg 和 Chromium，用户无需预先安装 Python。网络、WinGet、权限或依赖安装失败时检查实际错误；不将环境检查通过当作云端或登录可用。已有文稿无需语音 Key 和浏览器识别。
 
-本机登记配置优先沿用。新电脑默认工作目录为 Windows「文档」下 `dyb-douyinbrain`；默认不创建知识库，用户明确要求入库时再选择已有库或按要求创建新库。用户明确指定的工作目录或知识库优先。创建空库不授权收录历史任务；已有库按其现行规则和入口使用，不能覆盖已有内容。
+本机登记配置优先沿用。新电脑默认工作目录为 Windows「文档」下 `cy-charmyee`；默认不创建知识库，用户选择配置个人知识库或明确要求入库时，再接入已有库或创建新库。用户明确指定的工作目录或知识库优先。创建空库不授权收录历史任务；已有库按其现行规则和入口使用，不能覆盖已有内容。
 
-本机非秘密位置设置在 `%LOCALAPPDATA%/dyb-douyinbrain/settings.json`。实际安装结果见同目录 `install-result.json`。程序与工作数据分开，迁移时不沿用其他电脑的绝对路径、登录状态或凭据；重新安装并在新电脑配置。
+新安装的非秘密位置设置在 `%LOCALAPPDATA%/cy-charmyee/settings.json`；已有旧品牌登记时可继续使用 `%LOCALAPPDATA%/dyb-douyinbrain`。实际状态目录由安装回执及 `CY_STATE_DIR`（兼容 `DYB_STATE_DIR`）确定，结果见同目录 `install-result.json`。程序与工作数据分开，换电脑时重新安装并配置，不沿用其他电脑的登录状态或凭据。
 
-同一 Windows 用户从旧名称 `douyin-brain` 升级时，安装器发现单套旧设置后沿用原 workspace、加密 Key 和任务，备份原配置与旧 Skill，保留旧名称兼容入口。发现多个不同 workspace 时返回 `needs_workspace_choice` 与候选项：向用户展示并询问一次，再用所选 `-Workspace` 重跑；不要自动合并数据。具体步骤见 [INSTALL.md](../INSTALL.md#从旧版-douyin-brain-迁移)。
+同一 Windows 用户从 `dyb-douyinbrain` / `douyin-brain` 迁移时，安装器发现单套旧设置后沿用原 workspace、加密 Key 和任务，备份原配置与旧 Skill，保留旧主入口和已确认归属的子入口。发现多个不同 workspace 时返回 `needs_workspace_choice` 与候选项：向用户展示并询问一次，再用所选 `-Workspace` 重跑；不要自动合并数据。首次迁移与命名对照见[品牌迁移](brand-migration.md)，操作见 [INSTALL.md](../INSTALL.md#从旧名称迁移)。
 
 ## 指定工作目录或知识库
 
@@ -47,6 +47,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\scripts\install.ps1' 
 可由用户在本机进程配置 `DOUBAO_ASR_API_KEY`，或 `DOUBAO_ASR_APP_ID` 和 `DOUBAO_ASR_ACCESS_KEY`；诊断只检查是否存在，不打印值。
 
 抖音登录不是安装前置。常规获取在后台尝试公开素材并报告实际原因；普通登录按钮不能证明必须登录。只有用户明确要求登录、验证或界面排障时使用 `scripts/invoke.ps1 login`，由用户在可见的项目专用浏览器完成登录或验证码。`doctor` 只检查本地依赖与凭据是否存在，不登录、不校验云端权限、不发送识别请求。实际可用性以用户选择的任务结果为准。
+
+## 个人知识库
+
+可选的 cy-vault 提供对话建档、模块增配与正常任务中的主动积累，见[个人知识库指南](personal-vault.md)。安装本身不启用收录；开启时选定工作区或当前 Agent 范围，沿用已有权威档案，创建新的轻量库才使用模板。
 
 ## 知识库入口
 

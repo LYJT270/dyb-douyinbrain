@@ -22,7 +22,7 @@ def load_packager():
 class PackageTests(unittest.TestCase):
     def test_repository_dist_is_allowed_and_never_reenters_next_package(self):
         with tempfile.TemporaryDirectory() as temp:
-            copy = Path(temp) / "dyb-douyinbrain"
+            copy = Path(temp) / "cy-charmyee"
             shutil.copytree(SKILL_ROOT, copy, ignore=shutil.ignore_patterns(".git", "dist", ".trash", ".scratch", "__pycache__"))
             package = load_packager()
             first = package.build(copy, copy / "dist", "8.0.0")
@@ -30,17 +30,17 @@ class PackageTests(unittest.TestCase):
             second = package.build(copy, copy / "dist", "8.0.1")
             with zipfile.ZipFile(second["zip"]) as archive:
                 self.assertFalse(any("/dist/" in name or "/.trash/" in name for name in archive.namelist()))
-            self.assertEqual(["dyb-douyinbrain-windows-v8.0.1.zip"], [p.name for p in (copy / "dist").iterdir()])
+            self.assertEqual(["cy-charmyee-windows-v8.0.1.zip"], [p.name for p in (copy / "dist").iterdir()])
             self.assertTrue(any(Path(p).suffix == ".sha256" for p in second["moved_to_trash"]))
 
     def test_migration_package_leaves_out_the_test_suite(self):
         with tempfile.TemporaryDirectory() as temp:
-            copy = Path(temp) / "dyb-douyinbrain"
+            copy = Path(temp) / "cy-charmyee"
             shutil.copytree(SKILL_ROOT, copy, ignore=shutil.ignore_patterns("__pycache__"))
             result = load_packager().build(copy, Path(temp) / "exports", "9.9.9")
             with zipfile.ZipFile(result["zip"]) as archive:
                 names = archive.namelist()
-                manifest = json.loads(archive.read("dyb-douyinbrain/bundle.json"))
-        self.assertIn("dyb-douyinbrain/scripts/brain.py", names)
-        self.assertFalse([name for name in names if name.startswith("dyb-douyinbrain/tests/")])
+                manifest = json.loads(archive.read("cy-charmyee/bundle.json"))
+        self.assertIn("cy-charmyee/scripts/brain.py", names)
+        self.assertFalse([name for name in names if name.startswith("cy-charmyee/tests/")])
         self.assertFalse([name for name in manifest["file_sha256"] if name.startswith("tests/")])

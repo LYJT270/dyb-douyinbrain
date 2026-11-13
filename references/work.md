@@ -11,8 +11,8 @@
   "request": "<用户实际要求>",
   "inputs": ["<实际链接或文件路径>"],
   "steps": [
-    {"id": "extract", "skill": "dyb-transcribe", "instruction": "<本步骤目标>", "depends_on": [], "accept_partial": false},
-    {"id": "rewrite", "skill": "dyb-write", "instruction": "<本步骤目标>", "depends_on": ["extract"], "accept_partial": false}
+    {"id": "extract", "skill": "cy-transcribe", "instruction": "<本步骤目标>", "depends_on": [], "accept_partial": false},
+    {"id": "rewrite", "skill": "cy-write", "instruction": "<本步骤目标>", "depends_on": ["extract"], "accept_partial": false}
   ]
 }
 ```

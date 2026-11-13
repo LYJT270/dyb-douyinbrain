@@ -1,4 +1,0 @@
-interface:
-  display_name: "抖音脑 · 主页下载"
-  short_description: "批量下载抖音主页可访问的视频和发布文案，报告实际画质。"
-  default_prompt: "使用 $dyb-download 下载我提供的抖音主页视频。"

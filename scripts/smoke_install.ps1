@@ -1,10 +1,10 @@
 ﻿param([Parameter(Mandatory=$true)][string]$PythonExecutable, [string]$SandboxDirectory)
 $ErrorActionPreference = 'Stop'
-$env:DYB_UPDATE_CHECK = '0'
+$env:CY_UPDATE_CHECK = '0'
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 $source = Split-Path -Parent $PSScriptRoot
-$sandbox = if ($SandboxDirectory) { [IO.Path]::GetFullPath($SandboxDirectory) } else { Join-Path ([IO.Path]::GetTempPath()) ('dyb-smoke-' + [Guid]::NewGuid().ToString('N')) }
+$sandbox = if ($SandboxDirectory) { [IO.Path]::GetFullPath($SandboxDirectory) } else { Join-Path ([IO.Path]::GetTempPath()) ('cy-smoke-' + [Guid]::NewGuid().ToString('N')) }
 $state = Join-Path $sandbox 'state'
 $data = Join-Path $sandbox 'data with spaces'
 $skills = Join-Path $sandbox 'skills'
@@ -14,7 +14,7 @@ $result = Get-Content -LiteralPath (Join-Path $state 'install-result.json') -Raw
 if ($result.status -ne 'awaiting_api' -or -not $result.local_entry_verified -or $result.live_asr_requests -ne 0) {
     throw 'Installation did not reach the expected local-ready / no-API state.'
 }
-$env:DYB_STATE_DIR = $state
+$env:CY_STATE_DIR = $state
 $entry = $result.entrypoint
 $doctorText = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $entry doctor
 if ($LASTEXITCODE -ne 0) { throw 'Installed entrypoint doctor failed.' }

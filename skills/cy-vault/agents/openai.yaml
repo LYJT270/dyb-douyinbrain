@@ -1,0 +1,4 @@
+interface:
+  display_name: "CY-vault · 个人知识库"
+  short_description: "对话建立或接入个人知识库，逐步建档，并在已开启范围内主动积累成果。"
+  default_prompt: "使用 $cy-vault 帮我建立个人知识库，先通过简单对话了解我。"

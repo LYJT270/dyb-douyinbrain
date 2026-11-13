@@ -11,7 +11,7 @@ from urllib import request
 from urllib.error import URLError
 import zipfile
 
-REPOSITORY = "ScarfaceAI/dyb-douyinbrain"
+REPOSITORY = "ScarfaceAI/CY-CharmYee"
 REPOSITORY_URL = "https://github.com/" + REPOSITORY
 API_URL = "https://api.github.com/repos/" + REPOSITORY
 MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
@@ -24,7 +24,7 @@ def version_tuple(value: str) -> tuple[int, int, int]:
 
 
 def read_url(url: str, timeout: float = 30, limit: int = MAX_DOWNLOAD_BYTES) -> bytes:
-    req = request.Request(url, headers={"User-Agent": "dyb-douyinbrain", "Accept": "application/vnd.github+json"})
+    req = request.Request(url, headers={"User-Agent": "cy-charmyee", "Accept": "application/vnd.github+json"})
     def read(context=None):
         options = {"timeout": timeout}
         if context is not None:
@@ -55,7 +55,7 @@ def release_info(value: dict) -> dict:
         raise ValueError("Only published stable releases are supported")
     version = tag[1:]
     version_tuple(version)
-    name = f"dyb-douyinbrain-windows-{tag}.zip"
+    name = f"cy-charmyee-windows-{tag}.zip"
     base = REPOSITORY_URL + f"/releases/download/{tag}/"
     assets = {asset["name"]: asset for asset in value.get("assets", [])}
     for filename in (name, name + ".sha256"):
@@ -77,7 +77,7 @@ def verify_archive(archive_path: Path, *, expected_version: str | None = None,
     digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()
     if len(parts) != 2 or parts[0] != digest or parts[1] != archive_path.name:
         raise ValueError("Release ZIP SHA-256 or filename does not match its checksum file")
-    prefix = "dyb-douyinbrain/"
+    prefix = "cy-charmyee/"
     try:
         opened = zipfile.ZipFile(archive_path)
     except zipfile.BadZipFile as exc:
@@ -93,7 +93,7 @@ def verify_archive(archive_path: Path, *, expected_version: str | None = None,
         manifest = json.loads(archive.read(prefix + "bundle.json"))
         version = manifest["version"]
         version_tuple(version)
-        if manifest.get("name") != "dyb-douyinbrain" or manifest.get("repository") != REPOSITORY_URL:
+        if manifest.get("name") != "cy-charmyee" or manifest.get("repository") != REPOSITORY_URL:
             raise ValueError("Unexpected release identity")
         if expected_version and version != expected_version:
             raise ValueError("Release version does not match the requested version")
@@ -141,4 +141,4 @@ def extract_verified(archive_path: Path, directory: Path, version: str) -> Path:
                 raise ValueError("Unpack target is outside the staging directory")
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(archive.read(name))
-    return directory / "dyb-douyinbrain"
+    return directory / "cy-charmyee"

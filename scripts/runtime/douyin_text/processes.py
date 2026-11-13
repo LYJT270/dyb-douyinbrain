@@ -96,7 +96,7 @@ class Worker:
         self.job = Job()
         env = {k: v for k, v in os.environ.items() if not k.startswith('DOUBAO_ASR_')}
         env['PYTHONPATH'] = str(Path(__file__).resolve().parent.parent)
-        env['DYB_UPDATE_CHECK'] = '0'
+        env['CY_UPDATE_CHECK'] = '0'
         self.process = subprocess.Popen(self.command, stdin=subprocess.PIPE, stdout=self.stream,
             stderr=subprocess.STDOUT, env=env, creationflags=HIDDEN, cwd=Path(__file__).resolve().parent.parent)
         try:

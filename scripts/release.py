@@ -67,7 +67,7 @@ def main() -> None:
     root = Path(__file__).resolve().parents[1]
     result = preflight(root)
     if args.publish:
-        run(root, "git", "tag", "-a", result["tag"], "-m", "Douyin-brain " + result["version"])
+        run(root, "git", "tag", "-a", result["tag"], "-m", "CY-CharmYee " + result["version"])
         run(root, "git", "push", "origin", result["tag"])
         result.update(status="tag_pushed", actions_url=REPOSITORY_URL + "/actions/workflows/check.yml",
                       next_action="Wait for the tagged workflow, then run scripts/verify_release.py --download")

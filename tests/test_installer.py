@@ -16,9 +16,9 @@ from support import SKILL_ROOT
 @unittest.skipUnless(os.name == "nt", "Windows installer")
 class InstallerTests(unittest.TestCase):
     def test_nested_legacy_workspace_stays_at_its_original_path(self):
-        with tempfile.TemporaryDirectory(prefix='dyb-nested-migration-') as temp:
+        with tempfile.TemporaryDirectory(prefix='cy-nested-migration-') as temp:
             base = Path(temp).resolve()
-            old, target, state = base / 'skills/douyin-brain', base / 'skills/dyb-douyinbrain', base / 'state'
+            old, target, state = base / 'skills/douyin-brain', base / 'skills/cy-charmyee', base / 'state'
             workspace = old / 'workspace'
             for folder in (old / 'scripts', workspace / '.local', workspace / 'runs/prior'):
                 folder.mkdir(parents=True, exist_ok=True)
@@ -29,7 +29,7 @@ class InstallerTests(unittest.TestCase):
             quote = lambda value: "'" + str(value).replace("'", "''") + "'"
             script = '. ' + quote(SKILL_ROOT / 'scripts/migration.ps1') + '\n'
             script += '$plan=@{selected=@{legacy_skills=@(' + quote(old) + ')};workspace=' + quote(workspace) + ';aliases=@()}\n'
-            script += 'Register-DybLegacyAliases $plan ' + quote(target) + ' ' + quote(state) + '\n'
+            script += 'Register-CyLegacyAliases $plan ' + quote(target) + ' ' + quote(state) + '\n'
             script += '$plan.aliases | ConvertTo-Json -Depth 6'
             process = subprocess.run(['powershell.exe', '-NoProfile', '-Command', script], capture_output=True, timeout=30)
             self.assertEqual(0, process.returncode, process.stderr.decode('utf-8', 'replace') + process.stdout.decode('utf-8', 'replace')[-2500:])
@@ -42,13 +42,13 @@ class InstallerTests(unittest.TestCase):
             self.assertIn(str(target / 'scripts/invoke.ps1'), (old / 'scripts/invoke.ps1').read_text(encoding='utf-8-sig'))
 
     def test_legacy_workspace_key_tasks_and_old_name_survive_automatic_migration(self):
-        with tempfile.TemporaryDirectory(prefix='dyb-migration-') as temp:
+        with tempfile.TemporaryDirectory(prefix='cy-migration-') as temp:
             base = Path(temp).resolve()
             source = base / 'source'
             shutil.copytree(SKILL_ROOT, source, ignore=shutil.ignore_patterns('.git', '.trash', '.scratch', 'dist', '__pycache__'))
             (source / 'VERSION').write_text('1.3.0')
             load_packager().write_manifest(source, '1.3.0')
-            state, legacy_state = base / 'state/dyb-douyinbrain', base / 'state/douyin-brain'
+            state, legacy_state = base / 'state/cy-charmyee', base / 'state/douyin-brain'
             workspace, skills = base / '已有 工作区', base / 'profile/.agents/skills'
             old = skills / 'douyin-brain'
             for folder in (legacy_state, old, workspace / '.local', workspace / 'runs/prior'):
@@ -60,8 +60,8 @@ class InstallerTests(unittest.TestCase):
             (workspace / 'runs/prior/task.json').write_bytes(b'{"history":"unchanged"}')
             subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(workspace / '.venv')], check=True, capture_output=True)
             env = {**os.environ, 'USERPROFILE': str(base / 'profile'), 'LOCALAPPDATA': str(base / 'local'),
-                   'DYB_STATE_DIR': str(state), 'DYB_UPDATE_CHECK': '0'}
-            env.pop('DYB_WORKSPACE', None)
+                   'CY_STATE_DIR': str(state), 'CY_UPDATE_CHECK': '0'}
+            env.pop('CY_WORKSPACE', None)
             env.pop('DSH_AGENTS_HOME', None)
             command = ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(source / 'scripts/install.ps1'),
                        '-SkillsRoot', str(skills), '-StateDirectory', str(state), '-DataDirectory', str(base / 'data'),
@@ -85,18 +85,18 @@ class InstallerTests(unittest.TestCase):
             self.assertTrue((workspace / 'runs' / planned['id'] / 'task.json').is_file())
 
     def test_multiple_workspaces_require_one_choice_before_any_install_mutation(self):
-        with tempfile.TemporaryDirectory(prefix='dyb-choice-') as temp:
+        with tempfile.TemporaryDirectory(prefix='cy-choice-') as temp:
             base = Path(temp).resolve()
             source = base / 'source'
             shutil.copytree(SKILL_ROOT, source, ignore=shutil.ignore_patterns('.git', '.trash', '.scratch', 'dist', '__pycache__'))
             (source / 'VERSION').write_text('1.3.0')
             load_packager().write_manifest(source, '1.3.0')
-            state, legacy = base / 'state/dyb-douyinbrain', base / 'state/douyin-brain'
+            state, legacy = base / 'state/cy-charmyee', base / 'state/douyin-brain'
             for folder, workspace in ((state, base / 'first'), (legacy, base / 'second')):
                 folder.mkdir(parents=True)
                 workspace.mkdir()
                 (folder / 'settings.json').write_text(json.dumps({'workspace': str(workspace)}), encoding='utf-8')
-            env = {**os.environ, 'USERPROFILE': str(base / 'profile'), 'LOCALAPPDATA': str(base / 'local'), 'DYB_STATE_DIR': str(state)}
+            env = {**os.environ, 'USERPROFILE': str(base / 'profile'), 'LOCALAPPDATA': str(base / 'local'), 'CY_STATE_DIR': str(state)}
             env.pop('DSH_AGENTS_HOME', None)
             process = subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
                 str(source / 'scripts/install.ps1'), '-StateDirectory', str(state), '-SkillsRoot', str(base / 'skills'),
@@ -109,18 +109,18 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(str(base / 'first'), json.loads((state / 'settings.json').read_text())['workspace'])
 
     def test_shared_install_can_be_reused_through_the_claude_junction(self):
-        with tempfile.TemporaryDirectory(prefix="dyb-alias-") as temp:
+        with tempfile.TemporaryDirectory(prefix="cy-alias-") as temp:
             base = Path(temp).resolve()
             source = base / "source"
             shutil.copytree(SKILL_ROOT, source, ignore=shutil.ignore_patterns(".git", ".trash", ".scratch", "dist", "__pycache__"))
             (source / 'VERSION').write_text('1.0.0')
             load_packager().write_manifest(source, "1.0.0")
-            env = {**os.environ, "USERPROFILE": str(base / "profile"), "DYB_STATE_DIR": str(base / "state")}
-            env.pop("DYB_WORKSPACE", None)
+            env = {**os.environ, "USERPROFILE": str(base / "profile"), "CY_STATE_DIR": str(base / "state")}
+            env.pop("CY_WORKSPACE", None)
             common = ["-StateDirectory", str(base / "state"), "-DataDirectory", str(base / "data"),
                       "-PythonExecutable", sys.executable, "-SkipDependencies", "-NoApiWindow"]
-            alias = base / "profile/.claude/skills/dyb-douyinbrain"
-            shared = base / "profile/.agents/skills/dyb-douyinbrain"
+            alias = base / "profile/.claude/skills/cy-charmyee"
+            shared = base / "profile/.agents/skills/cy-charmyee"
             for script, agent in ((source / "scripts/install.ps1", "all"),
                                   (source / "scripts/install.ps1", "claude"),
                                   (alias / "scripts/install.ps1", "claude")):
@@ -133,15 +133,15 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(shared.resolve(), alias.resolve())
 
     def test_install_repeat_and_preserve_modified_install_in_isolation(self):
-        with tempfile.TemporaryDirectory(prefix="dyb-install-") as temp:
+        with tempfile.TemporaryDirectory(prefix="cy-install-") as temp:
             base = Path(temp).resolve()
             source = base / "source"
             shutil.copytree(SKILL_ROOT, source, ignore=shutil.ignore_patterns(".git", ".trash", ".scratch", "dist", "__pycache__"))
             (source / 'VERSION').write_text('1.0.0')
             load_packager().write_manifest(source, "1.0.0")
             state, skills, data = base / "state", base / "skills", base / "中文 data"
-            env = {**os.environ, "USERPROFILE": str(base / "profile"), "DYB_STATE_DIR": str(state)}
-            env.pop("DYB_WORKSPACE", None)
+            env = {**os.environ, "USERPROFILE": str(base / "profile"), "CY_STATE_DIR": str(state)}
+            env.pop("CY_WORKSPACE", None)
             command = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
                        str(source / "scripts/install.ps1"), "-SkillsRoot", str(skills),
                        "-StateDirectory", str(state), "-DataDirectory", str(data),
@@ -152,16 +152,16 @@ class InstallerTests(unittest.TestCase):
                 result = json.loads((state / "install-result.json").read_text(encoding="utf-8-sig"))
                 self.assertEqual("dependencies_pending", result["status"])
                 self.assertFalse(result["local_entry_verified"])
-                self.assertEqual(str(data / "dyb-douyinbrain"), result["workspace"])
+                self.assertEqual(str(data / "cy-charmyee"), result["workspace"])
                 self.assertIsNone(result["backup"])
                 self.assertTrue(result['onboarding']['due'])
                 self.assertEqual('welcome', result['welcome_command'])
                 cfg = json.loads((Path(result['workspace']) / 'config.json').read_text(encoding='utf-8-sig'))
                 self.assertFalse(cfg.get('vault_root'), 'default installation must not create a knowledge library')
-                self.assertFalse((data / 'dyb-douyinbrain-知识库').exists())
+                self.assertFalse((data / 'cy-charmyee-知识库').exists())
                 self.assertFalse((Path(result['workspace']) / '.local/onboarding.json').exists(),
                                  'terminal output is not an Agent presentation in chat')
-            installed = skills / "dyb-douyinbrain"
+            installed = skills / "cy-charmyee"
             original = (installed / "SKILL.md").read_text(encoding="utf-8")
             (installed / "SKILL.md").write_text(original + "\nUser edit\n", encoding="utf-8")
             process = subprocess.run(command, env=env, capture_output=True, timeout=90)
@@ -177,7 +177,7 @@ class InstallerTests(unittest.TestCase):
     def test_shared_and_application_specific_discovery_paths(self):
         # Exercise actual PowerShell path selection without writing to any application.
         script = ". '" + str(SKILL_ROOT / "scripts/paths.ps1").replace("'", "''") + "'; "
-        script += "$items=@{}; foreach($name in @('auto','shared','deepseek','codex','gemini','cursor','opencode','claude')) {$items[$name]=Get-DybSkillsRoot $name ''}; $items|ConvertTo-Json -Compress"
+        script += "$items=@{}; foreach($name in @('auto','shared','deepseek','codex','gemini','cursor','opencode','claude')) {$items[$name]=Get-CySkillsRoot $name ''}; $items|ConvertTo-Json -Compress"
         with tempfile.TemporaryDirectory() as name:
             env = {**os.environ, "USERPROFILE": name}
             env.pop("DSH_AGENTS_HOME", None)

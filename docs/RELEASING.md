@@ -2,7 +2,7 @@
 
 [English](releasing.en.md)
 
-本指南面向维护抖音脑的人，也包含[已有用户升级](#已有用户如何升级)的步骤。公开仓库是发布源码的真源；安装后的 Skill 副本用于运行。
+本指南面向维护承意的人，也包含[已有用户升级](#已有用户如何升级)的步骤。公开仓库是发布源码的真源；安装后的 Skill 副本用于运行。
 
 ## 先分清修改与发布
 
@@ -72,38 +72,40 @@ python -B -X utf8 scripts/verify_release.py --archive '<本地 ZIP 路径>'
 
 ## 已有用户如何升级
 
-### 1.0.0／1.0.1 的首次过渡
+### 旧品牌版本首次迁移到承意 1.6.0
 
-旧版没有自动更新入口，先手动安装一次最新正式版；自动更新功能从 1.1.0 开始提供：
+旧品牌 `dyb-douyinbrain` 或 `douyin-brain` 首次切换到承意，都需要运行一次新安装器。1.0.0／1.0.1 没有自动更新入口；虽然 1.1.0–1.5.0 已提供更新功能，但其更新器固定校验旧产品 ID、包名和包内根目录，不能直接 `update --apply` 安装 1.6.0 新品牌包。
 
-1. 下载并解压[最新 Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest)的安装 ZIP。
-2. 用同一 Windows 用户运行新版安装器。默认安装可双击 `install.cmd`；此前指定过 `-Agent`、`-SkillsRoot`、`-Workspace` 或 `-Vault` 的，沿用原参数，或让 Agent 按原参数运行安装器。这样可以复用已登记的工作目录和本机设置；保留现有数据与配置。
+1. 从[官方 Release](https://github.com/ScarfaceAI/CY-CharmYee/releases/latest)下载承意安装 ZIP 和 `.zip.sha256`，核验后解压。1.6.0 的文件名为 `cy-charmyee-windows-v1.6.0.zip`，`bundle.json` 的产品 ID 为 `cy-charmyee`。
+2. 用同一 Windows 用户运行新包中的安装器。默认安装可双击 `install.cmd`；此前指定过 Agent、SkillsRoot 或自定义 StateDirectory 的，沿用原参数，或让 Agent 按原参数运行。单套登记会自动沿用已有工作目录，多个工作目录由用户选择一次。不要先删除旧程序、配置或任务。
 3. 根据安装结果中的 `entrypoint` 运行 `doctor`，再用自己选择的一小段已有文稿等低影响任务检查实际功能。需要验证语音服务时，另用用户授权的素材执行真实任务；服务可能计费。
 4. 让 Agent 重新读取安装后的 `SKILL.md`，或开启新会话。已有对话不会因为文件更新就自动替换上下文中已加载的旧 Skill。
 
-### 1.1.0 及以后
+旧入口会转为兼容入口，任务、凭据和知识库选择继续沿用。详见[品牌迁移](../references/brand-migration.md)；历史 Release 资产及标签保持原样。
 
-开始新任务时，Skill 会检查 GitHub 最新正式版；有新版就提醒，不自行安装。检查使用 24 小时缓存；`plan`／`plan-text` 对同一个新版每天最多提醒一次。检查断网或失败不阻断原任务，下载素材和云端语音等功能仍需各自的网络条件。
+### 已安装承意 1.6.0 及以后
 
-需要更新时可以对 Agent 说「`@dyb-douyinbrain 更新`」或「`$dyb-douyinbrain 更新`」；不支持这些调用方式时，说「使用 dyb-douyinbrain 更新自己」。用户明确要求后，程序下载官方 Release ZIP，校验外部 SHA-256 和包内完整清单，使用当前 Skill 的真实位置、已有工作目录与本机状态运行安装器。已有本地程序改动会按安装器规则保留备份，原数据保留。完成后仍要做本地 `doctor` 与适当的功能检查，再让 Agent 重读新版 `SKILL.md` 或开启新会话。
+完成上述跨品牌迁移后，后续更新使用承意的正常更新入口。开始新任务时，Skill 会检查 GitHub 最新正式版；有新版就提醒，不自行安装。检查使用 24 小时缓存；`plan`／`plan-text` 对同一个新版每天最多提醒一次。检查断网或失败不阻断原任务，下载素材和云端语音等功能仍需各自的网络条件。
+
+需要更新时可以对 Agent 说「`@cy-charmyee 更新`」或「`$cy-charmyee 更新`」；不支持这些调用方式时，说「使用 cy-charmyee 更新自己」。用户明确要求后，程序下载官方 Release ZIP，校验外部 SHA-256 和包内完整清单，使用当前 Skill 的真实位置、已有工作目录与本机状态运行安装器。已有本地程序改动会按安装器规则保留备份，原数据保留。完成后仍要做本地 `doctor` 与适当的功能检查，再让 Agent 重读新版 `SKILL.md` 或开启新会话。
 
 需要手动检查或诊断时，通过已安装 Skill 的入口执行：
 
 ```powershell
-$dyRun = '<已安装 Skill>\scripts\invoke.ps1'
-& $dyRun check-update          # 使用 24 小时缓存
-& $dyRun check-update --force  # 强制查询
-& $dyRun update                # 只检查，不安装
-& $dyRun update --apply        # 用户明确要求更新后执行
+$cyRun = '<已安装 cy-charmyee>\scripts\invoke.ps1'
+& $cyRun check-update          # 使用 24 小时缓存
+& $cyRun check-update --force  # 强制查询
+& $cyRun update                # 只检查，不安装
+& $cyRun update --apply        # 用户明确要求更新后执行
 ```
 
-在当前 PowerShell 进程及其子进程中设置 `$env:DYB_UPDATE_CHECK = '0'` 可以关闭日常检查；显式 `update --apply` 仍可使用。
+在当前 PowerShell 进程及其子进程中设置 `$env:CY_UPDATE_CHECK = '0'` 可以关闭日常检查；显式 `update --apply` 仍可使用。
 
 安装结果和 `doctor` 只反映本机状态；`awaiting_api` 说明尚无语音凭据，不妨碍处理已有文字。具体配置和参数见[安装指南](../INSTALL.md)。
 
 ## 失败、修复与回退
 
-- 如果 1.1.0 检查或更新时因 GitHub 证书链错误失败，可从[最新 Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest)下载新版 ZIP，按上方手动升级步骤使用同一 Windows 用户和原安装参数运行安装器，再检查本地入口。
+- 如果 1.1.0 检查或更新时因 GitHub 证书链错误失败，可从[最新 Release](https://github.com/ScarfaceAI/CY-CharmYee/releases/latest)下载新版 ZIP，按上方手动升级步骤使用同一 Windows 用户和原安装参数运行安装器，再检查本地入口。
 - `v*` 正式标签不可重写或删除，已发布的 Release 和资产保留。失败时不覆盖旧标签或资产。
 - 标签推送或发布过程被中断时，先检查该标签对应的 Actions 和 Release，确认实际状态再决定后续操作，避免重复发布。
 - 已发布版本有缺陷时，修复后走新的 PR 并发布新补丁；需要撤回某项功能时，使用 revert PR 并发布新版本。

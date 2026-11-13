@@ -1,0 +1,4 @@
+interface:
+  display_name: "CY-transcribe · 转写与校对"
+  short_description: "转写校对抖音或本地音视频，处理字幕与导出；显式调用可处理已有文稿。"
+  default_prompt: "使用 $cy-transcribe 转写并校对我提供的音视频。"

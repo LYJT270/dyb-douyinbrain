@@ -1,8 +1,8 @@
 {
-  "revision": 2,
+  "revision": 4,
   "intro": {
-    "zh": "抖音脑帮你把视频和文稿变成可阅读、可分析、可继续创作的材料。直接说需求即可，Agent 会选择流程；下面这些功能可以单独使用，也能组合。",
-    "en": "Douyin-brain turns videos and drafts into material you can read, analyze, and reuse. Tell your Agent what you need; it chooses the workflow. These capabilities work independently or together."
+    "zh": "我是承意 CY-CharmYee。承你所想，会你所意。你可以让我处理视频和文稿，也可以通过简短对话配置个人知识库；按当前任务使用即可。",
+    "en": "Meet CY-CharmYee: a personal knowledge and media creation assistant. Work with video and text, or build an optional personal knowledge base through a short conversation."
   },
   "capabilities": [
     {
@@ -75,12 +75,25 @@
       "zh": {
         "title": "归档与整理知识",
         "example": "把这批资料存入知识库，并整理成主题笔记",
-        "outcome": "保留来源的原文与校对稿、按要求整理主题页；需要明确入库要求和目标位置"
+        "outcome": "保留来源的原文与校对稿、整理主题页；按明确要求或已开启的知识库范围执行"
       },
       "en": {
         "title": "Archive and organize knowledge",
         "example": "Archive these sources and synthesize topic notes",
-        "outcome": "Linked source and reviewed text, plus requested topic pages; requires an explicit archive request and destination"
+        "outcome": "Linked original and reviewed sources with topic notes, under explicit requests or enabled knowledge collection scope"
+      }
+    },
+    {
+      "id": "personal-vault",
+      "zh": {
+        "title": "个人知识库与对话建档",
+        "example": "帮我建立个人知识库，先了解我的背景和目标",
+        "outcome": "可续接的基础档案、创作与学习模块；开启后主动查资料和积累成果，可暂停或指定本次不保存"
+      },
+      "en": {
+        "title": "Personal knowledge and conversational profiles",
+        "example": "Build a personal knowledge base and learn about my background and goals",
+        "outcome": "Resumable profiles and creative/learning modules; opted-in context retrieval and useful outcome collection, with pause and no-save controls"
       }
     },
     {
@@ -115,13 +128,13 @@
       "第一次先准备运行环境；语音 Key、知识库和抖音登录按任务需要配置，已有配置直接复用。不要把 Key 发到聊天里。",
       "语音识别可能收费；博主批量分析先展示本批新增用量并取得授权，普通转写按本次明确要求执行并说明计费环节。仅下载和已有文字处理不调用语音识别，Agent 平台自身成本另计。",
       "先在聊天里看到正文或分析结论、依据和处理范围，再获取详细文件。只能处理当前可访问的作品，缺失项会明确列出。",
-      "整套安装包含总入口和 5 个业务入口，共用配置与任务材料；直接说需求即可，熟悉后也可以点名使用某个入口。"
+      "整套安装包含总入口和 6 个业务入口，共用配置与任务材料；直接说需求即可，熟悉后也可以点名使用某个入口。"
     ],
     "en": [
       "Prepare the local runtime first. Configure speech credentials, a knowledge destination, or Douyin login only when the task needs them. Reuse existing settings; never send keys in chat.",
       "Speech recognition may incur charges. Preview and authorize new speech usage for a creator batch; ordinary transcription follows the explicit request with its paid step explained. Downloads and existing text make no speech calls; Agent platform costs are separate.",
       "See readable text or analysis, evidence, and coverage in chat before opening detailed files. Only currently accessible posts can be processed; gaps are reported.",
-      "The suite includes one coordinator and five business entrypoints sharing configuration and task materials. Describe your goal, or name a specific entrypoint when you prefer."
+      "The suite includes one coordinator and six business entrypoints sharing configuration and task materials. Describe your goal, or name a specific entrypoint when you prefer."
     ]
   }
 }

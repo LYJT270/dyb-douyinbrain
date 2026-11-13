@@ -43,8 +43,8 @@ def make_manifest(skill: Path, version: str, payload=None) -> dict:
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise ValueError("Version must use major.minor.patch")
     payload = collect(skill) if payload is None else payload
-    manifest = {"name": "dyb-douyinbrain", "display_name": "抖音脑 Douyin-brain", "version": version,
-            "platform": "windows", "license": "MIT", "repository": "https://github.com/ScarfaceAI/dyb-douyinbrain",
+    manifest = {"name": "cy-charmyee", "display_name": "承意 CY-CharmYee", "version": version,
+            "platform": "windows", "license": "MIT", "repository": "https://github.com/ScarfaceAI/CY-CharmYee",
             "file_sha256": {p: hashlib.sha256(data).hexdigest() for p, data in sorted(payload.items())}}
     if 'assets/skill-suite.json' in payload:
         suite = json.loads(payload['assets/skill-suite.json'].decode('utf-8-sig'))
@@ -100,26 +100,26 @@ def build(skill: Path, output: Path, version: str) -> dict:
     manifest = make_manifest(skill, version, payload)
     manifest_data = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     output.mkdir(parents=True, exist_ok=True)
-    temporary = output / (".dyb-douyinbrain-" + uuid.uuid4().hex + ".zip.tmp")
+    temporary = output / (".cy-charmyee-" + uuid.uuid4().hex + ".zip.tmp")
     trash = output.parent / ".trash"
     try:
         with zipfile.ZipFile(temporary, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
             for relative, data in sorted(payload.items()):
-                archive.writestr("dyb-douyinbrain/" + relative, data)
-            archive.writestr("dyb-douyinbrain/bundle.json", manifest_data)
+                archive.writestr("cy-charmyee/" + relative, data)
+            archive.writestr("cy-charmyee/bundle.json", manifest_data)
         # Validate before touching any previously delivered ZIP.
         with zipfile.ZipFile(temporary) as archive:
             if archive.testzip() is not None:
                 raise ValueError("新迁移包 CRC 校验失败，旧包尚未移动")
-            packaged = json.loads(archive.read("dyb-douyinbrain/bundle.json"))
+            packaged = json.loads(archive.read("cy-charmyee/bundle.json"))
             for relative, checksum in packaged["file_sha256"].items():
-                if hashlib.sha256(archive.read("dyb-douyinbrain/" + relative)).hexdigest() != checksum:
+                if hashlib.sha256(archive.read("cy-charmyee/" + relative)).hexdigest() != checksum:
                     raise ValueError("新迁移包内容校验失败，旧包尚未移动")
     except Exception:
         if temporary.exists():
             move_to_trash(temporary, output, trash)
         raise
-    target = output / f"dyb-douyinbrain-windows-v{version}.zip"
+    target = output / f"cy-charmyee-windows-v{version}.zip"
     moved = []
     if target.exists():
         moved.append(str(move_to_trash(target, output, trash)))
@@ -129,13 +129,13 @@ def build(skill: Path, output: Path, version: str) -> dict:
     temporary.replace(target)
     # Update the installed manifest only after a valid ZIP is available.
     (skill / "bundle.json").write_bytes(manifest_data)
-    for previous in sorted(output.glob("dyb-douyinbrain-windows-*.zip")):
+    for previous in sorted(output.glob("cy-charmyee-windows-*.zip")):
         if previous != target:
             moved.append(str(move_to_trash(previous, output, trash)))
             old_checksum = previous.with_suffix(".zip.sha256")
             if old_checksum.exists():
                 moved.append(str(move_to_trash(old_checksum, output, trash)))
-    remaining = sorted(p.name for p in output.glob("dyb-douyinbrain-windows-*.zip"))
+    remaining = sorted(p.name for p in output.glob("cy-charmyee-windows-*.zip"))
     if remaining != [target.name]:
         raise RuntimeError("交付目录未收敛到当前迁移包，请查看残留文件")
     return {"status": "packaged", "version": version, "zip": str(target),

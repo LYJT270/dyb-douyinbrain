@@ -20,13 +20,13 @@ import updates
 @unittest.skipUnless(os.name == 'nt', 'Windows suite installation')
 class SuiteInstallTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix='dyb-suite-')
+        self.temp = tempfile.TemporaryDirectory(prefix='cy-suite-')
         self.addCleanup(self.temp.cleanup)
         self.base = Path(self.temp.name).resolve()
         self.skills, self.state, self.workspace = [self.base / x for x in ('skills', 'state', '工作区')]
         self.env = {**os.environ, 'USERPROFILE': str(self.base / 'profile'),
-                    'LOCALAPPDATA': str(self.base / 'local'), 'DYB_STATE_DIR': str(self.state), 'DYB_UPDATE_CHECK': '0'}
-        for key in ('DYB_WORKSPACE', 'DSH_AGENTS_HOME', 'DOUBAO_ASR_API_KEY', 'DOUBAO_ASR_APP_ID', 'DOUBAO_ASR_ACCESS_KEY'):
+                    'LOCALAPPDATA': str(self.base / 'local'), 'CY_STATE_DIR': str(self.state), 'CY_UPDATE_CHECK': '0'}
+        for key in ('CY_WORKSPACE', 'DSH_AGENTS_HOME', 'DOUBAO_ASR_API_KEY', 'DOUBAO_ASR_APP_ID', 'DOUBAO_ASR_ACCESS_KEY'):
             self.env.pop(key, None)
 
     def source(self, version='1.3.1', broken_setup=False):
@@ -61,41 +61,52 @@ class SuiteInstallTests(unittest.TestCase):
     def snapshot(self):
         return {str(p.relative_to(self.skills)): p.read_bytes() for p in self.skills.rglob('*') if p.is_file()}
 
-    def test_six_physical_entries_and_shared_first_use_without_speech_key(self):
+    def test_seven_physical_entries_and_shared_first_use_without_speech_key(self):
         receipt = self.install(self.source())
-        self.assertEqual(6, len(receipt['suite_members']))
+        self.assertEqual(7, len(receipt['suite_members']))
         self.assertTrue(receipt['suite_verified'])
-        check = suite_manifest.check_installed(self.skills / 'dyb-douyinbrain')
-        self.assertEqual(5, len(check['members']))
+        check = suite_manifest.check_installed(self.skills / 'cy-charmyee')
+        self.assertEqual(6, len(check['members']))
+        self.assertIn('cy-vault', [row['name'] for row in check['members']])
         entry_files = list(self.skills.rglob('SKILL.md'))
-        self.assertEqual(6, len(entry_files), 'recursive discovery must see each entrypoint exactly once')
-        self.assertFalse((self.skills / 'dyb-douyinbrain/skills').exists())
+        self.assertEqual(7, len(entry_files), 'recursive discovery must see each entrypoint exactly once')
+        self.assertFalse((self.skills / 'cy-charmyee/skills').exists())
         for row in check['members']:
             result = self.invoke(row['name'], 'guide')
             self.assertEqual('ready', result['status'])
             self.assertEqual('installed', result['layout'])
-            self.assertEqual(str(self.skills / 'dyb-douyinbrain'), result['shared_root'])
+            self.assertEqual(str(self.skills / 'cy-charmyee'), result['shared_root'])
         subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(self.workspace / '.venv')], check=True, capture_output=True)
-        first = self.invoke('dyb-download', 'welcome')
+        first = self.invoke('cy-download', 'welcome')
         self.assertEqual('needs_speech_credentials', first['readiness']['new_speech'])
         self.assertEqual('available_to_agent', first['readiness']['existing_text'])
         self.assertTrue(first['onboarding']['due'])
-        self.invoke('dyb-transcribe', 'welcome', '--acknowledge')
-        self.assertFalse(self.invoke('dyb-write', 'welcome')['onboarding']['due'])
+        self.invoke('cy-transcribe', 'welcome', '--acknowledge')
+        self.assertFalse(self.invoke('cy-write', 'welcome')['onboarding']['due'])
         self.assertFalse((self.workspace / '.local/doubao.dpapi').exists())
 
     def test_unowned_child_directory_is_preserved_before_any_program_swap(self):
-        existing = self.skills / 'dyb-download/SKILL.md'
+        existing = self.skills / 'cy-download/SKILL.md'
         existing.parent.mkdir(parents=True)
         existing.write_text('User-owned independent skill', encoding='utf-8')
         receipt = self.install(self.source(), expected=1)
         self.assertIn('同名目录', receipt['error'])
         self.assertEqual('User-owned independent skill', existing.read_text())
-        self.assertFalse((self.skills / 'dyb-douyinbrain').exists())
+        self.assertFalse((self.skills / 'cy-charmyee').exists())
+
+    def test_explicit_workspace_boots_its_own_runtime_without_global_registration(self):
+        self.install(self.source())
+        subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(self.workspace / '.venv')], check=True, capture_output=True)
+        self.env['CY_STATE_DIR'] = str(self.base / 'unregistered-state')
+        shown = self.invoke('cy-vault', '--workspace', str(self.workspace), 'kb', 'status')
+        self.assertEqual('not_enabled', shown['status'])
+        self.assertEqual(str(self.workspace), shown['workspace'])
+        shown = self.invoke('cy-vault', '--workspace=' + str(self.workspace), 'kb', 'status')
+        self.assertEqual(str(self.workspace), shown['workspace'])
 
     def test_failed_new_setup_restores_all_entries_and_user_edits(self):
         self.install(self.source())
-        custom = self.skills / 'dyb-write/user-notes.txt'
+        custom = self.skills / 'cy-write/user-notes.txt'
         custom.write_text('Keep this local addition.', encoding='utf-8')
         preserved = self.snapshot()
         config = (self.workspace / 'config.json').read_bytes()
@@ -103,8 +114,8 @@ class SuiteInstallTests(unittest.TestCase):
         self.assertEqual('rolled_back', receipt['suite_rollback']['status'], json.dumps(receipt, ensure_ascii=False))
         self.assertEqual(preserved, self.snapshot())
         self.assertEqual(config, (self.workspace / 'config.json').read_bytes())
-        self.assertEqual(6, len([x for x in receipt['suite_rollback']['entries'] if Path(x['failed_backup']).is_dir()]))
-        self.assertFalse((self.skills / '.dyb-suite-installing.json').exists())
+        self.assertEqual(7, len([x for x in receipt['suite_rollback']['entries'] if Path(x['failed_backup']).is_dir()]))
+        self.assertFalse((self.skills / '.cy-suite-installing.json').exists())
 
     def test_locked_child_rolls_back_the_already_swapped_earlier_members(self):
         self.install(self.source())
@@ -114,7 +125,7 @@ class SuiteInstallTests(unittest.TestCase):
         kernel.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p]
         kernel.CreateFileW.restype = ctypes.c_void_p
         kernel.CloseHandle.argtypes = [ctypes.c_void_p]
-        handle = kernel.CreateFileW(str(self.skills / 'dyb-download/SKILL.md'), 0x80000000, 1, None, 3, 0x80, None)
+        handle = kernel.CreateFileW(str(self.skills / 'cy-download/SKILL.md'), 0x80000000, 1, None, 3, 0x80, None)
         self.assertNotEqual(ctypes.c_void_p(-1).value, handle)
         try:
             receipt = self.install(candidate, expected=1)
@@ -122,13 +133,13 @@ class SuiteInstallTests(unittest.TestCase):
             diagnostic = json.dumps({'receipt': receipt, 'journal': journal}, ensure_ascii=False)
             self.assertEqual('rolled_back', receipt['suite_rollback']['status'], diagnostic)
             self.assertEqual(preserved, self.snapshot())
-            locked = next(item for item in journal['entries'] if item['name'] == 'dyb-download')
+            locked = next(item for item in journal['entries'] if item['name'] == 'cy-download')
             self.assertFalse(Path(locked['backup']).exists(), 'a locked old directory must not be partially moved')
         finally:
             kernel.CloseHandle(handle)
         # The same version can be retried after the actual file lock is released.
         self.install(candidate)
-        self.assertEqual('1.3.2', self.invoke('dyb-download', 'guide')['version'])
+        self.assertEqual('1.3.2', self.invoke('cy-download', 'guide')['version'])
 
     def test_updater_recognizes_installer_suite_rollback_without_repeating_moves(self):
         self.install(self.source())
@@ -137,13 +148,13 @@ class SuiteInstallTests(unittest.TestCase):
         built = package.build(candidate, self.base / 'package', '1.3.2')
         archive = Path(built['zip'])
         archive.with_suffix('.zip.sha256').write_text(built['sha256'] + '  ' + archive.name)
-        info = {'version': '1.3.2', 'tag': 'v1.3.2', 'url': 'https://github.com/ScarfaceAI/dyb-douyinbrain/releases/tag/v1.3.2'}
+        info = {'version': '1.3.2', 'tag': 'v1.3.2', 'url': 'https://github.com/ScarfaceAI/CY-CharmYee/releases/tag/v1.3.2'}
         def download(_, directory):
             directory.mkdir(parents=True)
             return archive
         with patch.dict(os.environ, self.env), patch.object(updates, 'latest_release', return_value=info), \
                 patch.object(updates, 'download_release', side_effect=download):
-            result = updates.apply_update(self.skills / 'dyb-douyinbrain', self.state, self.workspace)
+            result = updates.apply_update(self.skills / 'cy-charmyee', self.state, self.workspace)
         self.assertEqual('failed', result['status'])
         self.assertTrue(result['program_restored'])
         self.assertEqual('rolled_back', result['suite_rollback'])
@@ -151,10 +162,10 @@ class SuiteInstallTests(unittest.TestCase):
 
     def test_child_version_mismatch_stops_commands_until_suite_repair(self):
         self.install(self.source())
-        marker_file = self.skills / 'dyb-analyze/.dyb-member.json'
+        marker_file = self.skills / 'cy-analyze/.cy-member.json'
         marker = json.loads(marker_file.read_text(encoding='utf-8-sig'))
         marker['version'] = '0.0.0'
         marker_file.write_text(json.dumps(marker), encoding='utf-8')
-        result = self.invoke('dyb-write', 'guide', expected=1)
+        result = self.invoke('cy-write', 'guide', expected=1)
         self.assertEqual('error', result['status'])
         self.assertIn('版本不一致', result['error'])

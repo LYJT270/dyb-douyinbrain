@@ -1,4 +1,4 @@
-"""Package and installation identities for the five business entrypoints."""
+"""Package and installation identities for the business entrypoints."""
 from __future__ import annotations
 
 import hashlib
@@ -8,7 +8,7 @@ import re
 
 
 def validate_suite(suite, files):
-    if not isinstance(suite, dict) or suite.get('schema') != 1 or suite.get('product') != 'dyb-douyinbrain':
+    if not isinstance(suite, dict) or suite.get('schema') != 1 or suite.get('product') != 'cy-charmyee':
         raise ValueError('Unsupported Skill suite identity')
     names = set()
     members = suite.get('members')
@@ -16,7 +16,7 @@ def validate_suite(suite, files):
         raise ValueError('Skill suite members are missing')
     for member in members:
         name = member.get('name', '')
-        if not re.fullmatch(r'dyb-[a-z][a-z0-9-]*', name) or name == 'dyb-douyinbrain' or name in names:
+        if not re.fullmatch(r'cy-[a-z][a-z0-9-]*', name) or name == 'cy-charmyee' or name in names:
             raise ValueError('Invalid or duplicate suite member')
         prefix = 'skills/' + name
         if member.get('source') != prefix:
@@ -47,9 +47,9 @@ def check_installed(skill: Path, manifest=None):
     rows = []
     for member in suite['members']:
         target = skill.parent / member['name']
-        marker = json.loads((target / '.dyb-member.json').read_text(encoding='utf-8-sig'))
+        marker = json.loads((target / '.cy-member.json').read_text(encoding='utf-8-sig'))
         if (marker.get('product'), marker.get('name'), marker.get('version'), marker.get('manifest_sha256')) != (
-                'dyb-douyinbrain', member['name'], manifest['version'], manifest_hash):
+                'cy-charmyee', member['name'], manifest['version'], manifest_hash):
             raise ValueError('Installed suite member identity differs: ' + member['name'])
         prefix = member['source'] + '/'
         for name, checksum in manifest['file_sha256'].items():

@@ -27,3 +27,5 @@ An earlier private, local-only workflow used two files from `a550752845-hue/douy
 Doubao ASR is an external service governed by its provider's terms. Each user supplies their own account and API credentials. Douyin, DeepSeek, Codex, Claude, Gemini, Cursor and OpenCode names identify interoperability targets; this project is not an official product of those providers.
 
 The hero illustration was generated for this project with OpenAI image generation. The workflow diagrams are project-authored SVGs. A configuration screenshot, when included, shows the project's own empty local dialog.
+
+Personal-vault instruction adapters are independently implemented from the published [OpenAI AGENTS.md](https://developers.openai.com/codex/guides/agents-md/) and [Claude Code memory](https://code.claude.com/docs/en/memory) interfaces. No third-party implementation code is included. / 个人知识库宿主适配独立实现，参考官方入口约定，不包含第三方实现代码。

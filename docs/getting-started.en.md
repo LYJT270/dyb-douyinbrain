@@ -1,6 +1,6 @@
-# Getting started with Douyin-brain on Windows
+# Getting started with CY-CharmYee on Windows
 
-Douyin-brain works with an Agent that can read local files and run terminal commands. Its bundled engine processes media locally and sends audio to your own Doubao Speech account for recognition. You can work with existing text without configuring speech credentials.
+CY-CharmYee works with an Agent that can read local files and run terminal commands. Its bundled engine processes media locally and sends audio to your own Doubao Speech account for recognition. You can work with existing text without configuring speech credentials.
 
 > The first-use introduction, creator analysis, independent profile video downloads, and specialized suite entries described here belong to the current unreleased source candidate. An official Release may have a different feature set.
 
@@ -8,7 +8,7 @@ Before configuration, the Agent introduces the capabilities, examples, outputs, 
 
 ## 1. Get the source or installation package
 
-Use the repository source root, or download and extract the installation ZIP from [the latest Release](https://github.com/ScarfaceAI/dyb-douyinbrain/releases/latest). The folder to install from contains `SKILL.md` and `scripts/install.ps1`.
+Use the repository source root, or download and extract the installation ZIP from [the latest Release](https://github.com/ScarfaceAI/CY-CharmYee/releases/latest). The folder to install from contains `SKILL.md` and `scripts/install.ps1`.
 
 Python and Douyin login are not installation prerequisites: the installer attempts to prepare Python, a virtual environment, dependencies, FFmpeg, and Chromium. Setup needs network access and may require you to resolve a Windows permission or package-manager problem.
 
@@ -24,7 +24,7 @@ The default `-Agent auto` uses the user's shared `.agents/skills` directory and 
 
 All adapters use the same core engine. Automatic discovery varies by Agent and configuration; if a skill list does not refresh, ask the Agent to read the installed `SKILL.md` directly. Installation adapters and a common skill format do not, by themselves, prove that each Agent's real interactive session has been tested.
 
-The candidate installs one suite: the `dyb-douyinbrain` main entry and five child Skills for transcription, analysis, profile downloads, rewriting, and knowledge work. Source and installation packages keep the children under `skills/`; installation places them in separate sibling directories and does not retain nested child entries under the main Skill, avoiding duplicate recursive discovery. A shared manifest verifies consistency. They share one workspace, configuration, and update path rather than requiring five setups. Child `guide` commands locate the shared runtime; inspect the actual installation and host discovery instead of assuming either succeeded. See [suite routing](../references/suite.en.md).
+The candidate installs one suite: the `cy-charmyee` main entry and five child Skills for transcription, analysis, profile downloads, rewriting, and knowledge work. Source and installation packages keep the children under `skills/`; installation places them in separate sibling directories and does not retain nested child entries under the main Skill, avoiding duplicate recursive discovery. A shared manifest verifies consistency. They share one workspace, configuration, and update path rather than requiring five setups. Child `guide` commands locate the shared runtime; inspect the actual installation and host discovery instead of assuming either succeeded. See [suite routing](../references/suite.en.md).
 
 When upgrading from the old `douyin-brain` name under the same Windows user, the installer can discover a single old configuration and reuse its workspace, encrypted key, and tasks. It backs up the old configuration and Skill and retains a compatibility entry under the old name. If it finds multiple different workspaces, it returns `needs_workspace_choice` with candidates. The Agent should present them, ask once which one to use, and rerun the installer with that path; workspaces and tasks are not merged:
 
@@ -46,7 +46,7 @@ The detailed [Doubao Speech guide](../references/doubao-setup.md) covers the Chi
 
 ## 4. Understand the result
 
-The installer writes `%LOCALAPPDATA%\dyb-douyinbrain\install-result.json`. The default workspace is `dyb-douyinbrain` under Windows Documents; no knowledge base is created by default. Existing registered paths and user-specified paths take precedence. Choose an existing library or create an empty one only when you request archiving; creating it does not archive past tasks.
+The installer writes `%LOCALAPPDATA%\cy-charmyee\install-result.json`. The default workspace is `cy-charmyee` under Windows Documents; no knowledge base is created by default. Existing registered paths and user-specified paths take precedence. Choose an existing library or create an empty one only when you request archiving; creating it does not archive past tasks.
 
 | Status | Meaning |
 |---|---|

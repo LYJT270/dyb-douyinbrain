@@ -35,7 +35,7 @@ def check(root: Path) -> list[str]:
         errors.append("bundle.json is stale; run scripts/package.py --manifest-only")
     skill = (root / "SKILL.md").read_text(encoding="utf-8-sig")
     frontmatter = skill.split("---", 2)[1] if skill.startswith("---") else ""
-    if not re.search(r"^name: dyb-douyinbrain$", frontmatter, re.M):
+    if not re.search(r"^name: cy-charmyee$", frontmatter, re.M):
         errors.append("Skill name does not match the published directory")
     if not re.search(r"^description: .+", frontmatter, re.M):
         errors.append("Skill description is missing")

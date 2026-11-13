@@ -12,12 +12,12 @@
 $ErrorActionPreference = 'Stop'
 $skillRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'paths.ps1')
-$settingsPath = Join-Path (Get-DybStateRoot) 'settings.json'
+$settingsPath = Join-Path (Get-CyStateRoot) 'settings.json'
 if (-not $Workspace) {
     if (Test-Path -LiteralPath $settingsPath) {
         $Workspace = (Get-Content -LiteralPath $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json).workspace
     } else {
-        $Workspace = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'dyb-douyinbrain'
+        $Workspace = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'cy-charmyee'
     }
 }
 $workspacePath = [IO.Path]::GetFullPath($Workspace)
@@ -69,7 +69,7 @@ if (Test-Path -LiteralPath $configPath) {
 }
 if (-not $Vault -and -not $configuredVault) {
     if ($NonInteractive -and $CreateVault) {
-        $baseVault = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'dyb-douyinbrain-知识库'
+        $baseVault = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'cy-charmyee-知识库'
         $Vault = $baseVault
         $suffix = 2
         $knownLibrary = $false

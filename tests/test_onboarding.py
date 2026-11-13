@@ -50,7 +50,7 @@ class OnboardingTests(WorkspaceCase):
 
     def test_cli_first_use_without_config_or_credentials(self):
         isolated = self.parent / 'new-user'
-        env = dict(os.environ, DYB_UPDATE_CHECK='0')
+        env = dict(os.environ, CY_UPDATE_CHECK='0')
         result = subprocess.run([sys.executable, '-B', '-X', 'utf8', str(SKILL_ROOT / 'scripts/brain.py'),
             '--workspace', str(isolated), 'welcome'], capture_output=True, env=env, timeout=20)
         self.assertEqual(0, result.returncode, result.stderr.decode('utf-8', 'replace'))
