@@ -10,18 +10,18 @@
 [![License](https://img.shields.io/github/license/ScarfaceAI/CY-CharmYee)](https://github.com/ScarfaceAI/CY-CharmYee/blob/main/LICENSE)
 [![Release](https://img.shields.io/github/v/release/ScarfaceAI/CY-CharmYee)](https://github.com/ScarfaceAI/CY-CharmYee/releases/latest)
 
-CY-CharmYee is a Windows-local suite of Skills for personal knowledge and media creation. Through a short conversation, your Agent can learn your stated background, goals, and collaboration preferences, then create or connect a knowledge base. You can also give it links, videos, or existing text for transcription, proofreading, analysis, and rewriting. Once enabled, the knowledge workflow retrieves relevant material, preserves useful outcomes, and develops related topics within the scope you choose.
+CY-CharmYee is a Windows-local suite of Skills for life, work, learning, and media creation. Through an ongoing conversation, your Agent can learn your experiences, goals, and ways of working, then create or connect a knowledge base. You can also give it links, videos, or existing text for transcription, proofreading, analysis, and rewriting. Once enabled, the knowledge workflow retrieves relevant material and preserves explicit new facts, changed states or goals, actual outcomes, and reusable work within the scope you choose.
 
 A second brain starts with practical work: keeping the information you explicitly provide, preserving originals and sources, and making completed work useful again. The knowledge base is optional. Existing text needs no speech setup; media transcription uses your own Doubao Speech API.
 
-> **1.6.0: 承意 · CY-CharmYee.** The brand and all 7 Skill entries share the new naming, with an optional personal knowledge base, conversational profiles, and scoped collection. Existing media and recovery workflows remain available. The first migration from the old brand requires running the new installer once. See the [1.6.0 release notes](docs/releases/v1.6.0.md), [brand migration](references/brand-migration.en.md), and [recovery and reuse](references/continuation.en.md).
+> **1.7.0: life, work and learning knowledge.** Start with what you need most, continue one question at a time until you pause, and use opted-in knowledge during everyday tasks. Existing libraries receive a complete preview before confirmed, backed-up reclassification. Newer releases trigger one reminder per participating chat. See the [1.7.0 release notes](docs/releases/v1.7.0.md). Media and recovery workflows remain available; the first migration from the old brand still requires the new installer. See [brand migration](references/brand-migration.en.md) and [recovery and reuse](references/continuation.en.md).
 
 The suite shares one installation, configuration, workspace, and update process. Tell your Agent what you need, or select an entry directly:
 
 | Display name | Skill ID | Purpose |
 |---|---|---|
 | **CY-CharmYee** | `cy-charmyee` | Combined requests, configuration, migration, and maintenance. |
-| **CY-vault** | `cy-vault` | Personal knowledge setup, profiles, creative and learning modules, and opted-in collection. |
+| **CY-vault** | `cy-vault` | Life, work, and learning knowledge, continuing interviews, and opted-in everyday context maintenance. |
 | **CY-transcribe** | `cy-transcribe` | Media transcription, proofreading, subtitles, and exports. |
 | **CY-analyze** | `cy-analyze` | Content and creator analysis. |
 | **CY-download** | `cy-download` | Creator-profile videos and published captions. |
@@ -34,8 +34,8 @@ Display names use `CY-xxxx`; host-facing Skill IDs, directories, and invocation 
 
 ## What it does
 
-- **Set up a personal knowledge base:** start with a brief profile conversation, add creative or learning modules when useful, or connect an existing library while preserving its rules and canonical profile.
-- **Build knowledge during real work:** retrieve relevant context, preserve useful outcomes, and update related topics within the enabled scope. Skip questions, pause collection, or exclude a task from saving. Failed writes remain available to resume.
+- **Set up a personal knowledge base:** choose whether to start with life, work, or learning; all three participate by default in a new library. Continue with one core question per interview turn, or connect an existing library while preserving its rules, canonical entrypoints, and previously authorized collection scope.
+- **Build knowledge during real work:** retrieve relevant context, preserve explicit new facts and reusable outcomes, and update related topics within the enabled scope. Skip questions, pause collection, or exclude a task from saving. Failed writes remain available to resume.
 - **Transcribe:** Douyin post links, shared text, creator profiles, link lists, and local audio or video.
 - **Preserve and proofread:** keep the machine transcript and existing source media unchanged, save a separate reviewed version, and read the whole text before checking names, numbers, and other uncertainties using the Agent's available image and audio tools.
 - **Analyze and adapt:** summarize, analyze, shorten, or write spoken scripts without overwriting the source.
@@ -45,7 +45,7 @@ Display names use `CY-xxxx`; host-facing Skill IDs, directories, and invocation 
 
 Try asking your Agent:
 
-> Help me set up a personal knowledge base. Start with the most useful questions so you can understand my work and help with future content.
+> Help me set up a personal knowledge base. Offer life, work, and learning as starting points; I'll choose where we begin, and keep all three in scope.
 
 > Continue our last learning task. Use my existing notes for a review and save the progress we confirm today.
 
@@ -71,11 +71,11 @@ At installation or first use, the Agent introduces the capabilities, examples, o
 
 ## Start a personal knowledge base
 
-Ask your Agent to create a personal knowledge base or connect an existing one. **CY-vault** first establishes its location and scope, reuses existing information, and asks only for useful missing details. Once the basic profile is sufficient, work begins; creative and learning modules can be added as relevant tasks arise.
+Ask your Agent to create a personal knowledge base or connect an existing one. **CY-vault** first establishes its location and scope. A new library offers life, work, and learning as starting points; the choice selects which one to discuss first, while all three participate by default. Interviews continue until you pause, stop, decline, or change the subject. Completing basic fields does not end them, and ordinary tasks remain focused on the task you gave. Existing libraries keep their prior collection scope; reclassification and refreshed host instructions do not broaden it, and scope expands only after explicit consent.
 
-A new library starts with source material, knowledge topics, and a personal profile. Other directories are added as needed. An existing library keeps its structure, rules, and profile entry. Enabled modules use relevant context and preserve task outcomes without requiring another archiving request each time. You can skip questions, pause collection, or keep a particular task unsaved. See the [personal knowledge guide](references/personal-vault.en.md).
+A new or existing library stores content under the top-level `生活/`, `工作/`, and `学习/` domains, with subdirectories added as needed. A shared personal profile belongs under `生活/个人档案/`; project and account-specific work styles stay with their work context. Existing users keep their previous collection scope; directory migration or refreshed host instructions do not expand authorization. Only an explicit opt-in to all domains enables previously unauthorized areas. Before migrating an existing library, the Agent reads its contents and rules, shows the complete proposed mapping, and waits for one confirmation. It then backs up originals, migrates and verifies links, indexes, and state, and preserves recovery; it does not clean up historical material. Within an enabled scope, the Agent proactively saves explicit new facts, changed states or goals, actual outcomes, and reusable work. You can skip questions, pause collection, or keep a particular task unsaved. See the [personal knowledge guide](references/personal-vault.en.md).
 
-Choose the suite workspace alone or everyday chats in the selected Agent. Configuring an instruction entry and verifying that a new chat actually reads it are separate checks; host behavior must be verified in a real session.
+Choose the suite workspace alone or everyday chats in the selected Agent. A short host instruction points to the shared workflow and the Skill description signals relevant daily tasks; a host may still fail to load the Skill in every chat, and the entry is not a background event listener. Verify implicit retrieval, its effect on results, and actual saving in a new chat; static installation is not acceptance.
 
 ## Install
 

@@ -1,18 +1,22 @@
 ---
 name: cy-vault
-description: Set up or connect a personal knowledge base, learn about the user through a resumable conversation, enable creative or learning modules, and maintain opted-in knowledge during everyday tasks. Use for personal-vault setup, profile corrections, or continuing its maintenance.
+description: Proactively use opted-in personal knowledge during everyday learning, work, and life tasks. Retrieve relevant context, preserve explicit changes and outcomes, set up or connect a knowledge base, and continue personal interviews or profile corrections.
 license: MIT
 ---
 
 # CY-vault · 个人知识库
 
-通过简短对话了解用户，让资料在正常任务中逐渐积累。负责建库、接入、建档、模块增配、使用范围与续办；材料归档和主题整理可复用 cy-knowledge。共用套件配置和运行时，不创建额外 Agent。
+通过持续、逐轮一个核心问题的对话了解用户，让生活、工作和学习资料在正常任务中逐渐积累。负责建库、接入、建档、使用范围与续办；材料归档和主题整理可复用 cy-knowledge。共用套件配置和运行时，不创建额外 Agent。
+
+三方向建档及旧库迁移从 1.7.0 开始提供；旧安装需更新后使用，保存与迁移结果以实际回执为准。
 
 先运行本子 Skill 的 `scripts/invoke.ps1 guide`，读取成功结果中的 `references.suite` 和 `references.personal-vault`；后续命令经同一入口透传。入口失败时报告真实问题，不猜共享目录。
 
-- 首次主动介绍这项可选能力，不阻断转写等明确任务。用户选择后，使用已授权的范围连续完成配置；推荐在当前所选 Agent 的日常聊天使用，也可只在套件工作区使用。
-- 先运行只读 `kb context`，复用明确已有资料与进度。建档一次问最有用的缺项，可跳过、暂停、续接；够用即展示简短资料卡并开始帮助，不要求先填完。
-- 原始回答与个人事实可追溯；作者资料和 AI 推测不能写成用户事实。已有权威档案继续维护原位置，保留人工修改。
-- 创作和学习模块按实际任务开启、按需补问。任务开始先查资料，可复用的成果主动保存并整理主题，交付时简短告知实际保存结果。开启范围后不逐次询问是否入库。
-- 已有库先读取现行规则和索引，沿用既有入口；新库使用素材、知识库、个人/档案三层结构，目录按需生长。
+- 首次主动介绍这项可选能力，不阻断明确任务。新库先问“你现在最想让我帮助你哪方面的事？”，给出“1．学习、2．工作、3．生活”；选择只决定先聊哪一块，目标已经明确时直接以对应方向开始。三方向都默认参与。已有用户沿用原收录范围；迁移或刷新 Host 入口不扩大授权，只有用户明确要求时才用 `kb enable --all-domains --evidence ...` 扩展到三方向。用户选择启用后，默认推荐当前所选 Agent 的日常聊天，也可只在套件工作区使用。
+- 先运行只读 `kb context`，复用明确已有资料与进度。访谈每轮只问一个核心问题，并持续到用户暂停、停止、拒答或换话题；基础字段齐全不代表结束。普通任务不强制采访。
+- 命令提示有新版时，在本会话首次交付中加一句面向用户的提醒，包含当前版本、新版和“@cy-charmyee 更新”；工具输出不算已告知。同一会话不重复，新会话仍提醒，继续原任务，不自动安装。
+- 原话、明确事实、主观感受和未确认推测保持可辨。已授权范围内主动保存明确的新事实、状态、目标变化和实际结果，不要求用户每次说“记住”；普通聊天不批量变成档案。已有公共个人档案归生活，工作项目或账号风格保留各自场景范围。
+- 生活、工作、学习方向和问题指引，沿上述共享个人知识库指南中的“个人知识方向”链接读取；由 guide 返回的共享路径定位资源，兼容源码和安装布局。任务开始先查相关资料，成果可复用时主动保存并整理主题，交付时自然、简短地点明重要变化与实际保存结果。
+- 新旧库的内容统一归入顶层 `生活/`、`工作/`、`学习/`，内部目录按需生长。已有库迁移先读全部现行规则、内容和入口，提供完整映射预览；用户一次确认后才备份、迁移、更新链接/索引/状态并核验，同时保留恢复能力和原始历史，不清理原内容。
+- Host 入口用短规则指向共享指南，并用本 Skill description 触发日常相关任务；配置可选仅限 workspace。宿主可能不在每次聊天加载 Skill，不能把入口文件说成后台监听。静态安装不等于新聊天行为验收。
 - 尊重“本次不保存”和暂停。保存失败先交付已完成成果，留下真实待处理项，按文件现状补存。定时运行和外部发布不随建库自动开启。

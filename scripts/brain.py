@@ -13,6 +13,7 @@ from runtime.douyin_text.identity import env_value, state_root
 def main() -> int:
     selector = argparse.ArgumentParser(add_help=False)
     selector.add_argument("--workspace", type=Path)
+    selector.add_argument("--session-id", help="Actual host chat ID, for one update notice per conversation")
     args, remaining = selector.parse_known_args()
     workspace = args.workspace or env_value("WORKSPACE")
     if not workspace:
@@ -25,6 +26,8 @@ def main() -> int:
     if workspace == skill_root or workspace.is_relative_to(skill_root) or skill_root.is_relative_to(workspace):
         raise ValueError("工作目录应与 Skill 程序目录分开")
     os.environ["CY_WORKSPACE"] = str(workspace)
+    if args.session_id:
+        os.environ["CY_SESSION_ID"] = args.session_id
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(workspace / ".local/browsers")
     links = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local"))) / "Microsoft/WinGet/Links"
     os.environ["PATH"] = str(links) + os.pathsep + os.environ.get("PATH", "")
@@ -41,7 +44,8 @@ def main() -> int:
             skill_root, state_root(), force=options.force, notify=remaining[0] == "check-update")
         print(json.dumps(result, ensure_ascii=False))
         return int(apply and result["status"] not in {"updated", "up_to_date"})
-    if remaining and (remaining[0] in {"plan", "plan-text"} or remaining[:2] == ['creator', 'plan']):
+    if remaining and (remaining[0] in {"plan", "plan-text"} or remaining[:2] in
+                      (['creator', 'plan'], ['kb', 'context'])):
         from updates import notify_on_task
         notify_on_task(skill_root, state_root())
     sys.path.insert(0, str(resource))

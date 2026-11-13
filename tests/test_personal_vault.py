@@ -22,11 +22,11 @@ class PersonalVaultTests(WorkspaceCase):
     def module(self, name='creative'):
         kb.configure(self.root, module=name, evidence='我想做游戏解说' if name == 'creative' else '我要学剪辑')
 
-    def manifest(self, *, task='task-1', target='素材/测试/原文.md', body='独立原文。', role='source', expected='-'):
+    def manifest(self, *, task='task-1', target='工作/资料/测试/原文.md', body='独立原文。', role='source', expected='-'):
         path = self.root / 'outputs' / (task + '.md')
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(body, encoding='utf-8')
-        return {'task': task, 'module': 'creative', 'title': '测试材料', 'files': [{
+        return {'task': task, 'module': 'work', 'title': '测试材料', 'files': [{
             'source': relative(self.root, path), 'target': target, 'role': role,
             'sources': ['https://example.org/source'], 'expected_sha256': expected}]}
 
@@ -58,12 +58,13 @@ class PersonalVaultTests(WorkspaceCase):
                         kb.stage(manifest, self.root)
                     self.assertEqual(before, path.read_bytes())
 
-    def test_new_library_has_only_base_folders_and_optional_modules(self):
+    def test_new_library_has_three_domains_and_default_scope(self):
         shown = self.enable()
-        self.assertEqual([], shown['modules'])
+        self.assertEqual(['life', 'work', 'learning'], shown['modules'])
         self.assertEqual('background', shown['next_question']['field'])
-        self.assertTrue((self.vault / '个人/档案').is_dir())
-        self.assertFalse((self.vault / '素材/对标').exists())
+        for folder in ('生活', '工作', '学习'):
+            self.assertTrue((self.vault / folder).is_dir())
+        self.assertEqual('生活/个人档案/基本资料.md', Path(shown['profile_entry']).relative_to(self.vault).as_posix())
         self.assertEqual([], kb.transactions(self.root))
         self.assertEqual('not_verified', shown['hook']['host_session'])
 
@@ -72,12 +73,13 @@ class PersonalVaultTests(WorkspaceCase):
         shown = kb.answer({'answer': '我做解说，最近想稳定周更，叫我阿林。',
             'fields': {'background': '游戏解说', 'goal': '稳定周更', 'name': '阿林'}, 'skip': ['preferences']}, self.root)
         self.assertEqual('saved', shown['saving']['status'])
-        self.assertIsNone(shown['onboarding']['next_question'])
+        self.assertTrue(shown['onboarding']['interview_prompt'])
         next_chat = self.cli('context')
         self.assertIn('阿林', next_chat['profile']['text'])
-        self.assertEqual([], next_chat['missing_fields'])
+        self.assertIn('work.direction', next_chat['missing_fields'])
+        self.assertIn('直到用户暂停', next_chat['interview_prompt'])
         self.assertTrue(next_chat['hook']['block_matches'])
-        original = list((self.vault / '素材/个人建档').glob('*.md'))[0].read_text(encoding='utf-8')
+        original = list((self.vault / '生活/资料/建档').glob('*.md'))[0].read_text(encoding='utf-8')
         self.assertIn('我做解说，最近想稳定周更，叫我阿林。', original)
 
     def test_paused_interview_does_not_prevent_correction(self):
@@ -97,7 +99,7 @@ class PersonalVaultTests(WorkspaceCase):
         self.assertTrue(links)
         for link in links:
             original = (profile.parent / unquote(link)).resolve()
-            self.assertTrue(original.is_relative_to(self.vault / '素材/个人建档'))
+            self.assertTrue(original.is_relative_to(self.vault / '生活/资料/建档'))
             self.assertIn('我做游戏解说', original.read_text(encoding='utf-8'))
 
     def test_external_profile_provenance_resolves_after_target_writer_saves(self):
@@ -123,7 +125,7 @@ class PersonalVaultTests(WorkspaceCase):
         profile = (self.vault / kb.PROFILE).read_text(encoding='utf-8')
         self.assertIn('视频剪辑', profile)
         self.assertNotIn('游戏解说', profile)
-        self.assertEqual(2, len(list((self.vault / '素材/个人建档').glob('*.md'))))
+        self.assertEqual(2, len(list((self.vault / '生活/资料/建档').glob('*.md'))))
         self.assertTrue(list((kb.home(self.root) / 'transactions' / second['saving']['id']).glob('*.previous')))
         self.assertEqual('saved', read_json(kb.home(self.root) / 'transactions' / first['saving']['id'] / 'transaction.json')['status'])
 
@@ -131,6 +133,7 @@ class PersonalVaultTests(WorkspaceCase):
         self.enable()
         with self.assertRaises(ValueError):
             kb.answer({'source': 'inference', 'answer': '作者说自己创业', 'fields': {'background': '创业者'}}, self.root)
+        kb.configure(self.root, disable_module='learning')
         with self.assertRaises(ValueError):
             kb.answer({'answer': '想学剪辑', 'fields': {'learning.goal': '剪辑'}}, self.root)
         self.assertFalse((self.vault / kb.PROFILE).exists())
@@ -147,7 +150,7 @@ class PersonalVaultTests(WorkspaceCase):
         self.assertIn('阿林', text)
         self.assertNotIn('阿新', text)
         self.assertEqual(3, len(kb.state(self.root)['answers']))
-        self.assertEqual(3, len(list((self.vault / '素材/个人建档').glob('*.md'))))
+        self.assertEqual(3, len(list((self.vault / '生活/资料/建档').glob('*.md'))))
         retried = kb.answer(first, self.root)
         self.assertEqual(restored['saving']['id'], retried['saving']['id'])
         self.assertEqual(3, len(kb.state(self.root)['answers']))
@@ -178,11 +181,12 @@ class PersonalVaultTests(WorkspaceCase):
              'fields': {'learning.goal': '剪辑', 'learning.basis': '基础切片', 'learning.method': '练习'}}, self.root)
         self.assertEqual('saved', result['saving']['status'])
         self.assertIn('learning.progress', kb.status(self.root)['missing_fields'])
-        self.assertNotIn('creative.direction', kb.status(self.root)['missing_fields'])
+        self.assertIn('work.direction', kb.status(self.root)['missing_fields'])
 
     def test_scope_requires_module_and_no_save_leaves_no_snapshot(self):
         self.enable()
         manifest = self.manifest()
+        kb.configure(self.root, disable_module='work')
         with self.assertRaisesRegex(ValueError, '模块尚未开启'):
             kb.stage(manifest, self.root)
         self.module()
@@ -198,7 +202,7 @@ class PersonalVaultTests(WorkspaceCase):
         self.module()
         ready = onboarding.welcome({'vault_root': str(self.vault)}, self.root)['readiness']
         self.assertEqual('enabled_scope', ready['knowledge_destination'])
-        self.assertEqual(['creative'], ready['knowledge_modules'])
+        self.assertEqual(['life', 'work', 'learning'], ready['knowledge_modules'])
         kb.configure(self.root, pause='collection')
         self.assertEqual('enabled_scope_paused', onboarding.welcome({'vault_root': str(self.vault)}, self.root)['readiness']['knowledge_destination'])
 
@@ -208,7 +212,7 @@ class PersonalVaultTests(WorkspaceCase):
         pending = kb.stage(self.manifest(), self.root)
         kb.configure(self.root, pause='collection')
         self.assertEqual('pending', kb.apply(pending['id'], self.root)['status'])
-        self.assertFalse((self.vault / '素材/测试/原文.md').exists())
+        self.assertFalse((self.vault / '工作/资料/测试/原文.md').exists())
         kb.configure(self.root, resume='collection')
         self.assertEqual('saved', kb.apply(pending['id'], self.root)['status'])
 
@@ -237,10 +241,10 @@ class PersonalVaultTests(WorkspaceCase):
         self.module()
         first = kb.stage(self.manifest(), self.root)
         kb.apply(first['id'], self.root)
-        repeated = kb.stage(self.manifest(task='task-2', target='素材/另一个名字.md'), self.root)
+        repeated = kb.stage(self.manifest(task='task-2', target='工作/资料/另一个名字.md'), self.root)
         self.assertTrue(repeated['reused'])
         self.assertEqual(first['id'], repeated['id'])
-        self.assertFalse((self.vault / '素材/另一个名字.md').exists())
+        self.assertFalse((self.vault / '工作/资料/另一个名字.md').exists())
         self.assertEqual(1, len(kb.transactions(self.root)))
 
     def test_changed_or_missing_saved_destination_is_not_a_dedup_success(self):
@@ -248,8 +252,8 @@ class PersonalVaultTests(WorkspaceCase):
         self.module()
         first = kb.stage(self.manifest(), self.root)
         kb.apply(first['id'], self.root)
-        (self.vault / '素材/测试/原文.md').write_text('人工变化', encoding='utf-8')
-        repeated = kb.stage(self.manifest(task='task-2', target='素材/另一个名字.md'), self.root)
+        (self.vault / '工作/资料/测试/原文.md').write_text('人工变化', encoding='utf-8')
+        repeated = kb.stage(self.manifest(task='task-2', target='工作/资料/另一个名字.md'), self.root)
         self.assertFalse(repeated.get('reused', False))
         same_task = kb.stage(self.manifest(), self.root)
         self.assertEqual('pending', same_task['status'])
@@ -281,9 +285,9 @@ class PersonalVaultTests(WorkspaceCase):
         self.enable()
         self.module()
         cases = [
-            ('素材/测试/原文.md', '[原文](素材/测试/原文.md "材料说明")'),
-            ('素材/测试/原文(2).md', '[原文](素材/测试/原文(2).md)'),
-            ('素材/测试/原文 3.md', '[原文](<素材/测试/原文 3.md> "材料说明")'),
+            ('工作/资料/测试/原文.md', '[原文](工作/资料/测试/原文.md "材料说明")'),
+            ('工作/资料/测试/原文(2).md', '[原文](工作/资料/测试/原文(2).md)'),
+            ('工作/资料/测试/原文 3.md', '[原文](<工作/资料/测试/原文 3.md> "材料说明")'),
         ]
         for n, (target, link) in enumerate(cases):
             with self.subTest(link=link):
@@ -299,13 +303,13 @@ class PersonalVaultTests(WorkspaceCase):
         self.enable()
         self.module()
         manifest = self.manifest()
-        conflict = self.vault / '知识库/主题.md'
+        conflict = self.vault / '工作/资料/主题.md'
         conflict.parent.mkdir(exist_ok=True)
         conflict.write_text('人工正文', encoding='utf-8')
-        manifest['files'].append({**manifest['files'][0], 'target': '知识库/主题.md', 'role': 'knowledge'})
+        manifest['files'].append({**manifest['files'][0], 'target': '工作/资料/主题.md', 'role': 'knowledge'})
         pending = kb.stage(manifest, self.root)
         self.assertEqual('pending', kb.apply(pending['id'], self.root)['status'])
-        self.assertFalse((self.vault / '素材/测试/原文.md').exists())
+        self.assertFalse((self.vault / '工作/资料/测试/原文.md').exists())
         self.assertEqual('人工正文', conflict.read_text(encoding='utf-8'))
 
     def test_index_failure_after_files_are_written_resumes_without_duplicates(self):
@@ -315,10 +319,10 @@ class PersonalVaultTests(WorkspaceCase):
         with patch.object(kb, 'write_index', side_effect=OSError('模拟磁盘暂时不可写')):
             result = kb.apply(item['id'], self.root)
         self.assertEqual('pending', result['status'])
-        self.assertTrue((self.vault / '素材/测试/原文.md').is_file())
+        self.assertTrue((self.vault / '工作/资料/测试/原文.md').is_file())
         self.assertEqual('saved', kb.retry(self.root)['items'][0]['status'])
         self.assertEqual([], kb.status(self.root)['pending'])
-        self.assertEqual(1, len(list((self.vault / '素材/测试').glob('*.md'))))
+        self.assertEqual(1, len(list((self.vault / '工作/资料/测试').glob('*.md'))))
 
     def test_raw_sources_cannot_be_updated_in_place(self):
         self.enable()
@@ -348,7 +352,7 @@ class PersonalVaultTests(WorkspaceCase):
         result = kb.apply(item['id'], self.root)
         self.assertEqual('pending', result['status'])
         self.assertIn('规则已改变', result['error'])
-        self.assertFalse((self.vault / '素材/测试/原文.md').exists())
+        self.assertFalse((self.vault / '工作/资料/测试/原文.md').exists())
 
     def test_existing_vault_and_external_profile_are_bound_without_reorganization(self):
         self.vault = self.parent / 'existing'
@@ -372,7 +376,7 @@ class PersonalVaultTests(WorkspaceCase):
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes((self.root / row['snapshot']).read_bytes())
         self.assertEqual('pending', kb.apply(item['id'], self.root, external=True)['status'])
-        (self.vault / 'index.md').write_text('# 原有导航\n[材料](素材/测试/原文.md)', encoding='utf-8')
+        (self.vault / 'index.md').write_text('# 原有导航\n[材料](工作/资料/测试/原文.md)', encoding='utf-8')
         self.assertEqual('saved', kb.apply(item['id'], self.root, external=True)['status'])
         self.assertFalse((self.vault / '个人').exists())
         (self.vault / 'index.md').write_text('# 人工重建导航\n', encoding='utf-8')
@@ -381,7 +385,7 @@ class PersonalVaultTests(WorkspaceCase):
         self.assertEqual('awaiting_target_writer', kb.apply(repeated['id'], self.root)['status'])
         self.assertEqual('# 人工重建导航\n', (self.vault / 'index.md').read_text(encoding='utf-8'))
         self.assertTrue(kb.status(self.root)['pending'])
-        (self.vault / 'index.md').write_text('# 人工重建导航\n[材料](素材/测试/原文.md)', encoding='utf-8')
+        (self.vault / 'index.md').write_text('# 人工重建导航\n[材料](工作/资料/测试/原文.md)', encoding='utf-8')
         self.assertEqual('saved', kb.apply(repeated['id'], self.root, external=True)['status'])
         self.assertEqual([], kb.status(self.root)['pending'])
 

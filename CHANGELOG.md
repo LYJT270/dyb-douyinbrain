@@ -1,5 +1,23 @@
 # 更新记录
 
+## 1.7.0 - 2026-11-13
+
+- 个人知识库扩展为生活、工作、学习三个方向。新启用后默认都参与，起步选择顺序为 1 学习、2 工作、3 生活；选择只决定先从哪里聊，不限制其他方向。
+- 访谈每次只问一个有用问题，基础资料齐全后仍可继续，直到用户暂停、停止或换话题。明确任务优先；相关日常任务会读取并使用已有资料，并在开启范围内积累明确的新信息和实际成果。
+- 旧收录范围继续有效，`creative` 作为 `work` 的兼容别名。已有知识库的完整重分类先生成映射预览，经用户一次确认后再备份并迁移；预览会拒绝重复的规则或导航替换目标（Windows 大小写等价也视为重复）。迁移修复受支持的链接、索引和运行状态，历史回执保持不变，且可恢复；目标库规则和现行写入入口不能绕过。
+- 新版提醒按参与的聊天分别去重，每个聊天对同一新版提醒一次；24 小时 Release 缓存独立于聊天提醒。只读通知状态不可写时仍保留提醒信息；只有用户明确要求才安装。已安装承意 1.6.0 可正常使用 `update --apply`；旧品牌首次切换仍需运行新安装器。安装不会自动迁移真实知识库或扩大收录范围。
+- 发布前最终全量 246 项通过，包含重复迁移目标回归；迁移专项 11 项通过，独立复审通过。GitHub CI 与公开安装包证据见正式 Release 的公开验证附录。实际 Codex CLI 主动读用并保存虚构资料通过；隔离安装保留既有文件、注册 7 个入口，安装布局下迁移与回滚通过。终版可见提醒、真实语音、抖音全量处理和真实知识库迁移未验证。
+
+功能、升级条件和验证边界见[1.7.0 版本说明](docs/releases/v1.7.0.md)与[三方向候选验证记录](docs/verification/three-domains-candidate.md)。
+
+- Extend the personal vault to life, work, and learning. All three participate by default when newly enabled; the starting choices are 1 Learning, 2 Work, and 3 Life. The choice sets the first interview focus, not an exclusive scope.
+- Ask one useful interview question at a time and continue after basic profile fields are complete until the user pauses, stops, or changes topic. Handle explicit tasks first. Relevant everyday tasks can read and use existing context, then collect explicit new information and real outcomes within the enabled scope.
+- Preserve existing collection scope and accept `creative` as a compatibility alias for `work`. Existing libraries require a complete mapping preview and one user confirmation before backup and reclassification. The preview rejects duplicate rule or navigation replacement targets, including Windows case-equivalent paths. Repair supported links, indexes, and runtime state; keep historical receipts unchanged and allow recovery. Do not bypass target-library rules or its current write entrypoint.
+- Check for updates independently in participating chats and remind once per chat for the same release. The 24-hour Release cache is separate from chat-level reminders. Preserve notice information when the read-only notice store cannot be written; install only on explicit request. Installed CY-CharmYee 1.6.0 can use its normal `update --apply` path. Old-brand installations still need the new installer for their first migration. Installation does not migrate a real library or expand its collection scope.
+- Final pre-release regression passed 246 tests, including duplicate migration targets; all 11 migration tests and independent re-review passed. Final CI and public-package evidence is recorded in the formal Release verification appendix. A real Codex CLI read/use/save trial with synthetic data passed; isolated installation preserved existing files and registered 7 entries, and installed-layout migration and rollback passed. Final user-visible reminders, live speech, full Douyin processing, and migration of a real library remain unverified.
+
+See the [1.7.0 release notes](docs/releases/v1.7.0.md) and [three-domain candidate verification](docs/verification/three-domains-candidate.md) for upgrade guidance and evidence boundaries.
+
 ## 1.6.0 - 2026-11-13
 
 - 品牌统一为「承意 CY-CharmYee」，口号「承你所想，会你所意」。主 Skill ID 为 `cy-charmyee`，子入口统一为 `cy-*`；展示名称使用 `CY-*`。

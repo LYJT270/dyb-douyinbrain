@@ -62,7 +62,7 @@ def initialize(root: Path = ROOT, *, vault: Path | None = None, create_vault: bo
         if create_vault:
             if vault.exists() and any(vault.iterdir()):
                 raise ValueError("目标目录已有内容，请按已有知识库配置，不覆盖其规则")
-            for directory in ["素材", "知识库", "个人/档案"]:
+            for directory in ["生活/个人档案", "生活/资料", "工作/资料", "学习/资料"]:
                 (vault / directory).mkdir(parents=True, exist_ok=True)
             for template in (SKILL_ROOT / "assets/vault").glob("*.md"):
                 immutable(vault / template.name, template.read_bytes())

@@ -20,9 +20,12 @@ def add_parser(sub):
     enable.add_argument('--entry-file', type=Path)
     enable.add_argument('--profile-entry', type=Path)
     enable.add_argument('--evidence', required=True)
+    enable.add_argument('--focus', '--selected', choices=kb.LEGACY_MODULES, default='life')
+    enable.add_argument('--all-domains', action='store_true', help='明确授权已有工作区开启全部方向')
     module = commands.add_parser('module')
-    module.add_argument('module', choices=kb.MODULES)
-    module.add_argument('--evidence', required=True)
+    module.add_argument('module', choices=kb.LEGACY_MODULES)
+    module.add_argument('--evidence', default='')
+    module.add_argument('--off', action='store_true', help='关闭该方向的自动参与与积累')
     for name in ('pause', 'resume'):
         action = commands.add_parser(name)
         action.add_argument('area', choices=['collection', 'interview'])
@@ -43,10 +46,17 @@ def add_parser(sub):
     revise.add_argument('--file', type=Path, required=True)
     collect = commands.add_parser('collect')
     collect.add_argument('task')
-    collect.add_argument('--module', choices=kb.MODULES, required=True)
+    collect.add_argument('--module', choices=kb.LEGACY_MODULES, required=True)
     rules = commands.add_parser('rules-reviewed')
     rules.add_argument('--evidence', required=True, help='Agent 已读规则的具体结论，不索要重复用户确认')
     rules.add_argument('--writer', choices=['local', 'target_rules'], required=True)
+    migration = commands.add_parser('migrate', help='预览、执行或恢复已确认的三方向重分类')
+    migration_commands = migration.add_subparsers(dest='migration_command', required=True)
+    migration_commands.add_parser('plan').add_argument('--file', type=Path, required=True)
+    migration_apply = migration_commands.add_parser('apply')
+    migration_apply.add_argument('migration')
+    migration_apply.add_argument('--evidence', required=True)
+    migration_commands.add_parser('rollback').add_argument('migration')
 
 
 def dispatch(args, root=ROOT):
@@ -56,10 +66,20 @@ def dispatch(args, root=ROOT):
     if action == 'context':
         return kb.context(root, query=args.query, task=args.task)
     with artifact_lock(kb.home(root) / 'control'):
+        if action == 'migrate':
+            from . import vault_migration
+            if args.migration_command == 'plan':
+                return vault_migration.plan(root, inside(root, args.file))
+            if args.migration_command == 'apply':
+                return vault_migration.apply(root, args.migration, args.evidence)
+            return vault_migration.rollback(root, args.migration)
         if action == 'enable':
             return kb.enable(root, vault=args.vault, create=args.create, scope=args.scope, host=args.host,
-                             entry=args.entry_file, profile=args.profile_entry, evidence=args.evidence)
+                             entry=args.entry_file, profile=args.profile_entry, evidence=args.evidence,
+                             focus=args.focus, all_domains=args.all_domains)
         if action == 'module':
+            if args.off:
+                return kb.configure(root, disable_module=args.module)
             return kb.configure(root, module=args.module, evidence=args.evidence)
         if action in {'pause', 'resume'}:
             return kb.configure(root, **{action: args.area})
